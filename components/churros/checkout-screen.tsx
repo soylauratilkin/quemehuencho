@@ -1,3 +1,17 @@
+"use client"
+
+import { useState } from "react"
+import { ArrowLeft, Banknote, CreditCard, Link2, LocateFixed, MapPin, Store } from "lucide-react"
+import { formatPrice, calcularPrecioEnvio } from "@/lib/menu-data"
+import { useStore } from "./store"
+import { cn } from "@/lib/utils"
+
+const payments = [
+  { id: "Efectivo", label: "Efectivo", note: "Pagás al recibir", icon: Banknote },
+  { id: "Mercado Pago", label: "Mercado Pago", note: "Te enviamos el link", icon: Link2 },
+  { id: "Transferencia", label: "Transferencia", note: "Compartinos el comprobante", icon: CreditCard },
+]
+
 // Primero, agregá esto al inicio de checkout-screen.tsx
 const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
 const DIRECCION_LOCAL = "Roque Sáenz Peña 212, Puerto Madryn, Argentina";
@@ -29,21 +43,6 @@ async function calcularDistanciaReal(direccionDestino: string): Promise<number |
     return null;
   }
 }
-
-
-"use client"
-
-import { useState } from "react"
-import { ArrowLeft, Banknote, CreditCard, Link2, LocateFixed, MapPin, Store } from "lucide-react"
-import { formatPrice, calcularPrecioEnvio } from "@/lib/menu-data"
-import { useStore } from "./store"
-import { cn } from "@/lib/utils"
-
-const payments = [
-  { id: "Efectivo", label: "Efectivo", note: "Pagás al recibir", icon: Banknote },
-  { id: "Mercado Pago", label: "Mercado Pago", note: "Te enviamos el link", icon: Link2 },
-  { id: "Transferencia", label: "Transferencia", note: "Compartinos el comprobante", icon: CreditCard },
-]
 
 export function CheckoutScreen() {
   const { subtotal, items, placeOrder, setScreen, orderDetails, setOrderDetails } = useStore()
