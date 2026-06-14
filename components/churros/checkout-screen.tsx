@@ -90,21 +90,61 @@ async function useMyLocation() {
   
   setIsCalculating(false);
 }
-
-  function handlePlaceOrder() {
-    if (!address || !phone) {
-      alert("Por favor, completá tu dirección y teléfono.")
-      return
-    }
-    if (deliveryFee === 0 && !error) {
-      alert("Por favor, calculá el costo de envío primero.")
-      return
-    }
-
-    const details = { address, phone, distanceKm, deliveryFee, paymentMethod: payment, notes }
-    setOrderDetails(details)
-    placeOrder(details)
+function handlePlaceOrder() {
+  if (!address || !phone) {
+    alert("Por favor, completá tu dirección y teléfono.")
+    return
   }
+  if (deliveryFee === 0 && !error) {
+    alert("Por favor, calculá el costo de envío primero.")
+    return
+  }
+
+  const details = { address, phone, distanceKm, deliveryFee, paymentMethod: payment, notes }
+  setOrderDetails(details)
+  placeOrder(details)
+  
+  // Abrir WhatsApp automáticamente después de confirmar
+  setTimeout(() => {
+    const itemsList = items.map((i) => `• ${i.quantity}x ${i.name}`).join("\n")
+    const mapLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address + ", Puerto Madryn")}`
+    const now = new Date().toLocaleString("es-AR")
+    const orderId = `QMH-${Math.floor(Math.random() * 9000) + 1000}`
+
+    const mensaje = `🚀 *PEDIDO CONFIRMADO* 🚀
+
+📦 *DETALLES DEL ENVÍO*
+━━━━━━━━━━━━━━━━
+🏪 *PUNTO DE RETIRO*
+📍 Roque Sáenz Peña 212
+📱 5492804007296
+
+🏠 *PUNTO DE ENTREGA*
+📍 ${address}
+📱 ${phone}
+👌 *DETALLES*
+📏 Distancia: ${distanceKm.toFixed(1)} km
+
+📦 *Pedido:*
+${itemsList}
+Subtotal: ${formatPrice(subtotal)}
+
+🏍️ Envío: *${formatPrice(deliveryFee)}*
+💰 *Total: ${formatPrice(total)}*
+💳 Método: ${payment}
+📝 Notas: ${notes || "Ninguna"}
+
+🗺️ *MAPA*
+${mapLink}
+
+🆔 ID: ${orderId}
+🕒 ${now}`
+
+    const numeroDelivery = "5492804272523" // Cambiá esto por el número de la empresa de delivery
+    const url = `https://wa.me/${numeroDelivery}?text=${encodeURIComponent(mensaje)}`
+    window.open(url, "_blank", "noopener,noreferrer")
+  }, 500)
+}
 
   function handleWhatsApp() {
     if (!orderDetails) return

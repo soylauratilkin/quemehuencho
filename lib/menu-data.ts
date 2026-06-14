@@ -25,7 +25,7 @@ export const formatPrice = (price: number) => {
 };
 
 // ⚠️ REEMPLAZÁ ESTO con tu URL de Google Sheets publicada como CSV
-export const MENU_CSV_URL = ""; 
+export const MENU_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSIZsfI1fWq7zCV3Vc_u2v5A-Tgk_XxYo5P0EqjzLfC1QTcORVdkvanwuYiXxM2dQuUjB4uv_qM4GfW/pub?gid=0&single=true&output=csv"; 
 
 export const PRECIOS_ENVIO = [
   { km_min: 0, km_max: 1.6, precio: 4000 },
