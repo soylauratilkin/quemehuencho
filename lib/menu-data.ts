@@ -33,8 +33,10 @@ export const DEFAULT_CONFIG = {
   telefono_delivery: "5492804602800",
   telefono_quemehuencho: "5492804007296",
   envio_minimo: 4000,
-  horario_apertura: "09:00",
-  horario_cierre: "23:00",
+  horario_apertura_mañana: "09:30",
+  horario_cierre_mañana: "12:00",
+  horario_apertura_tarde: "16:30",
+  horario_cierre_tarde: "20:30",
   esta_online: true,
   direccion_local: "Roque Sáenz Peña 212, Puerto Madryn",
 };

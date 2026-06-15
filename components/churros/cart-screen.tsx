@@ -5,13 +5,11 @@ import { formatPrice } from "@/lib/menu-data"
 import { categoryIcon } from "./category-icons"
 import { useStore } from "./store"
 
-const DELIVERY_FEE = 1500
-
 export function CartScreen() {
-  const { items, increment, decrement, removeItem, subtotal, setScreen } =
-    useStore()
+  const { items, increment, decrement, removeItem, subtotal, setScreen } = useStore()
 
-  const total = items.length > 0 ? subtotal + DELIVERY_FEE : 0
+  // Ya no hay costo fijo de 1500. El envío se calcula en el checkout.
+  const total = subtotal 
 
   return (
     <div className="flex min-h-dvh flex-col pb-32">
@@ -108,9 +106,9 @@ export function CartScreen() {
 
             <div className="mt-6 space-y-2 rounded-3xl bg-card p-4 shadow-sm ring-1 ring-border">
               <Row label="Subtotal" value={formatPrice(subtotal)} />
-              <Row label="Envío" value={formatPrice(DELIVERY_FEE)} />
+              <Row label="Envío" value="A calcular en el siguiente paso" isText />
               <div className="my-1 border-t border-dashed border-border" />
-              <Row label="Total" value={formatPrice(total)} strong />
+              <Row label="Total (sin envío)" value={formatPrice(total)} strong />
             </div>
           </div>
 
@@ -133,10 +131,12 @@ function Row({
   label,
   value,
   strong,
+  isText,
 }: {
   label: string
   value: string
   strong?: boolean
+  isText?: boolean
 }) {
   return (
     <div className="flex items-center justify-between">
@@ -153,7 +153,9 @@ function Row({
         className={
           strong
             ? "text-lg font-extrabold tabular-nums text-foreground"
-            : "text-sm font-semibold tabular-nums text-foreground"
+            : isText 
+              ? "text-sm font-semibold text-muted-foreground italic"
+              : "text-sm font-semibold tabular-nums text-foreground"
         }
       >
         {value}
