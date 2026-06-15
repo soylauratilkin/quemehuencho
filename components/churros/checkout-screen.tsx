@@ -333,6 +333,7 @@ ${notes ? `\n📝 Notas: ${notes}` : ""}
       </header>
 
       <div className="space-y-6 px-4 pt-5">
+        
         {/* DIRECCIÓN Y CÁLCULO */}
         <section>
           <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-muted-foreground">Dirección de entrega</h2>
