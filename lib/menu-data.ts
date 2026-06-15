@@ -21,8 +21,9 @@ export const formatPrice = (price: number) => {
     style: "currency",
     currency: "ARS",
     minimumFractionDigits: 0,
-  }).format(price);
-};
+    maximumFractionDigits: 0,
+  }).format(price).replace(/\s/g, "") // Elimina espacios
+}
 
 // URLs de tus Google Sheets publicadas como CSV
 export const MENU_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSIZsfI1fWq7zCV3Vc_u2v5A-Tgk_XxYo5P0EqjzLfC1QTcORVdkvanwuYiXxM2dQuUjB4uv_qM4GfW/pub?gid=0&single=true&output=csv";

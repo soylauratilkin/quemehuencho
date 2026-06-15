@@ -183,12 +183,23 @@ export function CheckoutScreen() {
 
 async function acortarLink(url: string): Promise<string> {
   try {
-    // is.gd: sin pantalla intermedia, sin API key, redirección directa
+    // Intentar con is.gd primero
     const response = await fetch(
       `https://is.gd/create.php?format=simple&url=${encodeURIComponent(url)}`
     )
     const shortUrl = await response.text()
-    return shortUrl.startsWith("http") ? shortUrl.trim() : url
+    if (shortUrl.startsWith("http") && shortUrl.length < url.length) {
+      return shortUrl.trim()
+    }
+    // Si falla, intentar con tinyurl
+    const response2 = await fetch(
+      `https://tinyurl.com/api-create.php?url=${encodeURIComponent(url)}`
+    )
+    const shortUrl2 = await response2.text()
+    if (shortUrl2.startsWith("http") && shortUrl2.length < url.length) {
+      return shortUrl2.trim()
+    }
+    return url
   } catch {
     return url
   }
@@ -253,26 +264,31 @@ function limpiarDireccion(direccionCompleta: string): string {
     setTimeout(async () => {
   const itemsList = items.map((i) => `• ${i.quantity}x ${i.name}`).join("\n")
   const now = new Date().toLocaleString("es-AR", { 
-    day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" 
-  })
+    day: "2-digit", 
+    month: "2-digit", 
+    hour: "2-digit", 
+    minute: "2-digit",
+    hour12: false // Sin AM/PM
+  }).replace(",", "") // Quita la coma
+  
   const orderId = `QMH-${Math.floor(Math.random() * 9000) + 1000}`
   const direccionLimpia = limpiarDireccion(foundAddress) || address
   
-  // Links de confirmación (cortos y directos)
+  // Links de confirmación (acortados)
   const linkTransferencia = await acortarLink(
     `https://wa.me/${config.telefono_quemehuencho}?text=${encodeURIComponent(
-      `Transferencia pedido ${orderId} - ${formatPrice(total)}`
+      `Transferencia pedido ${orderId} ${formatPrice(total)}`
     )}`
   )
   
   const linkEfectivo = await acortarLink(
     `https://wa.me/${config.telefono_quemehuencho}?text=${encodeURIComponent(
-      `Efectivo pedido ${orderId} - ${formatPrice(total)}`
+      `Efectivo pedido ${orderId} ${formatPrice(total)}`
     )}`
   )
 
-  const mensaje = `🚀 *PEDIDO ${orderId}*
-🕒 ${now}
+  const mensaje = `🚀 *NUEVO PEDIDO* 🚀
+🕒 ${now} ${orderId}
 
 📍 *Entrega:* ${direccionLimpia}
 📱 ${phone}
@@ -289,8 +305,8 @@ ${notes ? `\n📝 ${notes}` : ""}
 🏦 Alias: *${config.alias_mercadopago}*
 (${config.nombre_titular_alias})
 
-💵 [Efectivo](${linkEfectivo})
-🏦 [Transferencia](${linkTransferencia})`
+💵 Efectivo: ${linkEfectivo}
+🏦 Transferencia: ${linkTransferencia}`
 
   const url = `https://wa.me/${config.telefono_quemehuencho}?text=${encodeURIComponent(mensaje)}`
   window.open(url, "_blank", "noopener,noreferrer")
