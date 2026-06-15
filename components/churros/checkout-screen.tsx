@@ -183,25 +183,11 @@ export function CheckoutScreen() {
 
 async function acortarLink(url: string): Promise<string> {
   try {
-    // Intentar con is.gd primero
-    const response = await fetch(
-      `https://is.gd/create.php?format=simple&url=${encodeURIComponent(url)}`
-    )
-    const shortUrl = await response.text()
-    if (shortUrl.startsWith("http") && shortUrl.length < url.length) {
-      return shortUrl.trim()
-    }
-    // Si falla, intentar con tinyurl
-    const response2 = await fetch(
-      `https://tinyurl.com/api-create.php?url=${encodeURIComponent(url)}`
-    )
-    const shortUrl2 = await response2.text()
-    if (shortUrl2.startsWith("http") && shortUrl2.length < url.length) {
-      return shortUrl2.trim()
-    }
-    return url
+    const response = await fetch(`/api/shorten?url=${encodeURIComponent(url)}`);
+    const data = await response.json();
+    return data.shortUrl || url;
   } catch {
-    return url
+    return url;
   }
 }
 
@@ -227,91 +213,115 @@ function limpiarDireccion(direccionCompleta: string): string {
   
   return `${calle}, ${ciudadLimpia}`
 }
-  async function handlePlaceOrder() {
-    if (!address || !phone) {
-      alert("Por favor, completá tu dirección y teléfono.")
-      return
-    }
-    if (deliveryFee === 0 && !error) {
-      alert("Por favor, calculá el costo de envío primero.")
-      return
-    }
+async function handlePlaceOrder() {
+  if (!address || !phone) {
+    alert("Por favor, completá tu dirección y teléfono.")
+    return
+  }
+  if (deliveryFee === 0 && !error) {
+    alert("Por favor, calculá el costo de envío primero.")
+    return
+  }
 
-    localStorage.setItem("qh_address", address)
-    localStorage.setItem("qh_phone", phone)
-    localStorage.setItem("qh_last_order", new Date().toISOString())
+  localStorage.setItem("qh_address", address)
+  localStorage.setItem("qh_phone", phone)
+  localStorage.setItem("qh_last_order", new Date().toISOString())
 
-    const details = { address, phone, distanceKm, deliveryFee, paymentMethod: "A definir", notes }
-    setOrderDetails(details)
-    placeOrder(details)
+  const details = { address, phone, distanceKm, deliveryFee, paymentMethod: "A definir", notes }
+  setOrderDetails(details)
+  placeOrder(details)
+  
+  // Guardar en Google Sheets (garantía de que el pedido se registra)
+  if (WEBHOOK_URL) {
+    const orderId = `QMH-${Math.floor(Math.random() * 9000) + 1000}`
+    fetch(WEBHOOK_URL, {
+      method: "POST",
+      mode: "no-cors",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: orderId,
+        phone: phone,
+        address: address,
+        total: formatPrice(total),
+        items: items
+      })
+    }).catch(err => console.error("Error guardando en Sheets:", err))
+  }
+
+  // Mostrar pantalla de confirmación con fallback
+  // (El modal se muestra automáticamente porque deliveryFee > 0)
+  
+  // Intentar abrir WhatsApp después de 1 segundo
+  setTimeout(async () => {
+    const itemsList = items.map((i) => `• ${i.quantity}x ${i.name}`).join("\n")
+    const now = new Date().toLocaleString("es-AR", { 
+      day: "2-digit", 
+      month: "2-digit", 
+      hour: "2-digit", 
+      minute: "2-digit",
+      hour12: false
+    }).replace(",", "")
     
-    if (WEBHOOK_URL) {
-      const orderId = `QMH-${Math.floor(Math.random() * 9000) + 1000}`
-      fetch(WEBHOOK_URL, {
-        method: "POST",
-        mode: "no-cors",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: orderId,
-          phone: phone,
-          address: address,
-          total: formatPrice(total),
-          items: items
-        })
-      }).catch(err => console.error("Error guardando en Sheets:", err))
-    }
+    const orderId = `QMH-${Math.floor(Math.random() * 9000) + 1000}`
+    const direccionLimpia = limpiarDireccion(foundAddress) || address
+    
+    const mapLink = await acortarLink(
+      `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(
+        config.direccion_local
+      )}&destination=${encodeURIComponent(direccionLimpia)}&travelmode=driving`
+    )
+    
+    const linkTransferencia = await acortarLink(
+      `https://wa.me/${config.telefono_quemehuencho}?text=${encodeURIComponent(
+        `Transferencia pedido ${orderId} ${formatPrice(total)}`
+      )}`
+    )
+    
+    const linkEfectivo = await acortarLink(
+      `https://wa.me/${config.telefono_quemehuencho}?text=${encodeURIComponent(
+        `Efectivo pedido ${orderId} ${formatPrice(total)}`
+      )}`
+    )
 
-    setTimeout(async () => {
-  const itemsList = items.map((i) => `• ${i.quantity}x ${i.name}`).join("\n")
-  const now = new Date().toLocaleString("es-AR", { 
-    day: "2-digit", 
-    month: "2-digit", 
-    hour: "2-digit", 
-    minute: "2-digit",
-    hour12: false // Sin AM/PM
-  }).replace(",", "") // Quita la coma
-  
-  const orderId = `QMH-${Math.floor(Math.random() * 9000) + 1000}`
-  const direccionLimpia = limpiarDireccion(foundAddress) || address
-  
-  // Links de confirmación (acortados)
-  const linkTransferencia = await acortarLink(
-    `https://wa.me/${config.telefono_quemehuencho}?text=${encodeURIComponent(
-      `Transferencia pedido ${orderId} ${formatPrice(total)}`
-    )}`
-  )
-  
-  const linkEfectivo = await acortarLink(
-    `https://wa.me/${config.telefono_quemehuencho}?text=${encodeURIComponent(
-      `Efectivo pedido ${orderId} ${formatPrice(total)}`
-    )}`
-  )
+    const mensaje = `🚀 *NUEVO PEDIDO* 🚀
 
-  const mensaje = `🚀 *NUEVO PEDIDO* 🚀
-🕒 ${now} ${orderId}
+🆔 *ID:* ${orderId}
+🕒 ${now}
 
-📍 *Entrega:* ${direccionLimpia}
+━━━━━━━━━━━━━━━━
+🏪 *PUNTO DE RETIRO*
+📍 ${config.direccion_local}
+
+🏠 *PUNTO DE ENTREGA*
+📍 ${direccionLimpia}
 📱 ${phone}
-📏 ${distanceKm.toFixed(1)} km
+📏 Distancia: ${distanceKm.toFixed(1)} km
 
-📦 ${itemsList}
+🗺️ *RUTA DELIVERY:*
+${mapLink}
+━━━━━━━━━━━━━━━━
+
+📦 *Pedido:*
+${itemsList}
 
 💵 Subtotal: ${formatPrice(subtotal)}
 🏍️ Envío: ${formatPrice(deliveryFee)}
 💰 *TOTAL: ${formatPrice(total)}*
-${notes ? `\n📝 ${notes}` : ""}
+${notes ? `\n📝 Notas: ${notes}` : ""}
 
-💳 *PAGO:*
+━━━━━━━━━━━━━━━━
+💳 *FORMAS DE PAGO*
+━━━━━━━━━━━━━━━━
 🏦 Alias: *${config.alias_mercadopago}*
 (${config.nombre_titular_alias})
 
 💵 Efectivo: ${linkEfectivo}
 🏦 Transferencia: ${linkTransferencia}`
 
-  const url = `https://wa.me/${config.telefono_quemehuencho}?text=${encodeURIComponent(mensaje)}`
-  window.open(url, "_blank", "noopener,noreferrer")
-}, 500)
-  }
+    const url = `https://wa.me/${config.telefono_quemehuencho}?text=${encodeURIComponent(mensaje)}`
+    window.open(url, "_blank", "noopener,noreferrer")
+  }, 1000)
+}
 
   return (
     <div className="flex min-h-dvh flex-col pb-44">
@@ -353,7 +363,9 @@ ${notes ? `\n📝 ${notes}` : ""}
               <button
                 onClick={handleCalcularEnvio}
                 disabled={isCalculating}
-                className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-primary/30 bg-primary/5 text-sm font-bold text-primary disabled:opacity-50"
+                className={`flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-primary/30 bg-primary/5 text-sm font-bold text-primary disabled:opacity-50 ${
+                  deliveryFee === 0 && !error ? "animate-pulse-warning" : ""
+                }`}
               >
                 <LocateFixed className="size-4" />
                 {isCalculating ? "Calculando ruta..." : "Calcular desde dirección"}
@@ -458,6 +470,42 @@ ${notes ? `\n📝 ${notes}` : ""}
           Confirmar y Enviar Pedido
         </button>
       </div>
+      {deliveryFee > 0 && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+    <div className="mx-4 max-w-md rounded-3xl bg-card p-6 shadow-2xl">
+      <div className="mb-4 text-center">
+        <div className="mx-auto mb-3 flex size-16 items-center justify-center rounded-full bg-add text-add-foreground">
+          <Check className="size-8" />
+        </div>
+        <h3 className="text-xl font-bold text-foreground">¡Pedido confirmado!</h3>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Se abrió WhatsApp con tu pedido. Si no se abrió automáticamente, tocá el botón de abajo.
+        </p>
+      </div>
+      
+      <button
+        onClick={() => {
+          // Reintentar abrir WhatsApp
+          const url = `https://wa.me/${config.telefono_quemehuencho}?text=${encodeURIComponent("Pedido")}`
+          window.open(url, "_blank", "noopener,noreferrer")
+        }}
+        className="mb-3 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-add text-base font-bold text-add-foreground"
+      >
+        <svg viewBox="0 0 24 24" className="size-5 fill-current">
+          <path d="M.057 24l1.687-6.163a11.867 11.867 0 01-1.587-5.945C.16 5.335 5.495 0 12.05 0a11.82 11.82 0 018.413 3.488 11.82 11.82 0 013.48 8.414c-.003 6.557-5.338 11.892-11.893 11.892a11.9 11.9 0 01-5.688-1.448L.057 24zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884a9.86 9.86 0 001.51 5.26l-.999 3.648 3.578-.985zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z" />
+        </svg>
+        Reenviar por WhatsApp
+      </button>
+      
+      <button
+        onClick={() => setScreen("success")}
+        className="flex h-12 w-full items-center justify-center rounded-full bg-secondary text-base font-bold text-secondary-foreground"
+      >
+        Continuar sin enviar
+      </button>
+    </div>
+  </div>
+)}
     </div>
   )
 }
