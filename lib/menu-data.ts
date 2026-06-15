@@ -39,6 +39,8 @@ export const DEFAULT_CONFIG = {
   horario_cierre_tarde: "20:30",
   esta_online: true,
   direccion_local: "Roque Sáenz Peña 212, Puerto Madryn",
+  alias_mercadopago: "quemehuencho.mp",
+  nombre_titular_alias: "María Laura Tilkin",
 };
 
 export const PRECIOS_ENVIO = [

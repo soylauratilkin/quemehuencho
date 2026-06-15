@@ -1,24 +1,16 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ArrowLeft, Banknote, CreditCard, Link2, LocateFixed } from "lucide-react"
+import { ArrowLeft, LocateFixed, MapPin, Copy, Check } from "lucide-react"
 import { formatPrice, calcularPrecioEnvio, fetchConfig, DEFAULT_CONFIG } from "@/lib/menu-data"
 import { useStore } from "./store"
 import { cn } from "@/lib/utils"
 
-const payments = [
-  { id: "Efectivo", label: "Efectivo", note: "Pagás al recibir", icon: Banknote },
-  { id: "Mercado Pago", label: "Mercado Pago", note: "Te enviamos el link", icon: Link2 },
-  { id: "Transferencia", label: "Transferencia", note: "Compartinos el comprobante", icon: CreditCard },
-]
-
-// ⚠️ PEGÁ ACÁ LA URL DE TU APPS SCRIPT (la que termina en /exec)
-const WEBHOOK_URL = ""
+const WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbyzaKEUKzMuCSNiuzcvBFCtebPXgrpqyugjZTzTgpp_ZCuG5hWrd79FZOoK5ODccyvVhQ/exec";
 
 export function CheckoutScreen() {
   const { subtotal, items, placeOrder, setScreen, orderDetails, setOrderDetails } = useStore()
   
-  // 1. Cargar datos guardados del navegador (LocalStorage)
   const [address, setAddress] = useState(() => {
     if (typeof window !== "undefined") {
       return localStorage.getItem("qh_address") || orderDetails?.address || ""
@@ -33,13 +25,14 @@ export function CheckoutScreen() {
     return orderDetails?.phone || ""
   })
 
-  const [payment, setPayment] = useState(orderDetails?.paymentMethod || "Transferencia")
   const [notes, setNotes] = useState(orderDetails?.notes || "")
   const [isCalculating, setIsCalculating] = useState(false)
   const [distanceKm, setDistanceKm] = useState(orderDetails?.distanceKm || 0)
   const [deliveryFee, setDeliveryFee] = useState(orderDetails?.deliveryFee || 0)
   const [error, setError] = useState("")
   const [config, setConfig] = useState(DEFAULT_CONFIG)
+  const [copiedAlias, setCopiedAlias] = useState(false)
+  const [foundAddress, setFoundAddress] = useState("")
 
   useEffect(() => {
     fetchConfig().then(setConfig)
@@ -47,8 +40,7 @@ export function CheckoutScreen() {
 
   const total = subtotal + deliveryFee
 
-  // 2. Calcular distancia con OpenStreetMap (gratis)
-  async function calcularDistanciaReal(direccionDestino: string): Promise<number | null> {
+  async function calcularDistanciaReal(direccionDestino: string) {
     try {
       const response = await fetch(
         `/api/distance?destino=${encodeURIComponent(direccionDestino)}`
@@ -56,12 +48,12 @@ export function CheckoutScreen() {
       
       if (!response.ok) {
         const errorData = await response.json()
-        console.error("Error en la API:", errorData)
-        setError(`Error: ${errorData.error || "No se pudo calcular"}`)
+        setError(`❌ ${errorData.error || "No se pudo calcular"}`)
         return null
       }
 
       const data = await response.json()
+      setFoundAddress(data.direccionEncontrada || "")
       return data.distancia
     } catch (error) {
       console.error("Error calculando distancia:", error)
@@ -70,9 +62,10 @@ export function CheckoutScreen() {
     }
   }
 
-  async function useMyLocation() {
+  async function handleCalcularEnvio() {
     setIsCalculating(true)
     setError("")
+    setFoundAddress("")
 
     if (!address.trim()) {
       setError("Primero escribí tu dirección arriba.")
@@ -94,7 +87,7 @@ export function CheckoutScreen() {
       if (fee) {
         setDeliveryFee(fee)
       } else {
-        setError("Lo sentimos, estás fuera de nuestra zona de delivery (máx 10 km).")
+        setError(`Estás a ${distancia.toFixed(1)} km, fuera de nuestra zona de delivery (máx 10 km).`)
       }
     } catch (err) {
       setError("Error al calcular la distancia. Intentá de nuevo.")
@@ -103,23 +96,13 @@ export function CheckoutScreen() {
     setIsCalculating(false)
   }
 
-  async function acortarLink(url: string): Promise<string> {
-    try {
-      const response = await fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(url)}`)
-      const shortUrl = await response.text()
-      return shortUrl.startsWith("http") ? shortUrl : url
-    } catch {
-      return url
-    }
+  function copiarAlias() {
+    navigator.clipboard.writeText(config.alias_mercadopago)
+    setCopiedAlias(true)
+    setTimeout(() => setCopiedAlias(false), 2000)
   }
 
-  // 3. Función principal: confirmar pedido
   async function handlePlaceOrder() {
-    console.log("🔍 Iniciando handlePlaceOrder...");
-    console.log("📍 Dirección:", address);
-    console.log("📱 Teléfono:", phone);
-    console.log("💰 Delivery Fee:", deliveryFee);
-    
     if (!address || !phone) {
       alert("Por favor, completá tu dirección y teléfono.")
       return
@@ -129,25 +112,14 @@ export function CheckoutScreen() {
       return
     }
 
-    // GUARDAR EN EL NAVEGADOR DEL CLIENTE (con logs)
-    try {
-      localStorage.setItem("qh_address", address)
-      localStorage.setItem("qh_phone", phone)
-      localStorage.setItem("qh_last_order", new Date().toISOString())
-      
-      console.log("✅ Datos guardados en localStorage:");
-      console.log("  - Dirección:", localStorage.getItem("qh_address"));
-      console.log("  - Teléfono:", localStorage.getItem("qh_phone"));
-      console.log("  - Fecha:", localStorage.getItem("qh_last_order"));
-    } catch (err) {
-      console.error("❌ Error guardando en localStorage:", err);
-    }
+    localStorage.setItem("qh_address", address)
+    localStorage.setItem("qh_phone", phone)
+    localStorage.setItem("qh_last_order", new Date().toISOString())
 
-    const details = { address, phone, distanceKm, deliveryFee, paymentMethod: payment, notes }
+    const details = { address, phone, distanceKm, deliveryFee, paymentMethod: "A definir", notes }
     setOrderDetails(details)
     placeOrder(details)
     
-    // ENVIAR A GOOGLE SHEETS (en segundo plano, no bloquea la app)
     if (WEBHOOK_URL) {
       const orderId = `QMH-${Math.floor(Math.random() * 9000) + 1000}`
       fetch(WEBHOOK_URL, {
@@ -164,42 +136,52 @@ export function CheckoutScreen() {
       }).catch(err => console.error("Error guardando en Sheets:", err))
     }
 
-    // ABRIR WHATSAPP AUTOMÁTICAMENTE
     setTimeout(async () => {
       const itemsList = items.map((i) => `• ${i.quantity}x ${i.name}`).join("\n")
-      const mapLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address + ", Puerto Madryn")}`
-      const shortMapLink = await acortarLink(mapLink)
       const now = new Date().toLocaleString("es-AR")
       const orderId = `QMH-${Math.floor(Math.random() * 9000) + 1000}`
+      
+      // Link para que el cliente avise cuando pagó por transferencia
+      const linkConfirmarPago = `https://wa.me/${config.telefono_quemehuencho}?text=${encodeURIComponent(
+        `Hola! Ya transferí el pago del pedido ${orderId} por $${total.toFixed(0)} 🙌`
+      )}`
 
-      const mensaje = `🚀 *PEDIDO CONFIRMADO* 🚀
+      const mensaje = `🚀 *NUEVO PEDIDO* 🚀
+
+🆔 *ID:* ${orderId}
+🕒 ${now}
 
 📦 *DETALLES DEL ENVÍO*
 ━━━━━━━━━━━━━━━━
 🏪 *PUNTO DE RETIRO*
 📍 ${config.direccion_local}
-📱 ${config.telefono_quemehuencho}
 
 🏠 *PUNTO DE ENTREGA*
 📍 ${address}
 📱 ${phone}
-👌 *DETALLES*
 📏 Distancia: ${distanceKm.toFixed(1)} km
+${foundAddress ? `📍 Verificado: ${foundAddress}` : ''}
 
 📦 *Pedido:*
 ${itemsList}
 Subtotal: ${formatPrice(subtotal)}
 
 🏍️ Envío: *${formatPrice(deliveryFee)}*
-💰 *Total: ${formatPrice(total)}*
-💳 Método: ${payment}
+💰 *TOTAL: ${formatPrice(total)}*
 📝 Notas: ${notes || "Ninguna"}
 
-🗺️ *MAPA*
-${shortMapLink}
+━━━━━━━━━━━━━━━━
+💳 *FORMAS DE PAGO*
+━━━━━━━━━━━━━━━━
+💵 *EFECTIVO:* Pagás al recibir
+🏦 *TRANSFERENCIA:*
+   Alias: *${config.alias_mercadopago}*
+   Titular: ${config.nombre_titular_alias}
+   
+👉 Si transferís, avisame tocando acá:
+${linkConfirmarPago}
 
-🆔 ID: ${orderId}
-🕒 ${now}`
+⚠️ _El local confirmará la recepción del pedido a la brevedad._`
 
       const url = `https://wa.me/${config.telefono_quemehuencho}?text=${encodeURIComponent(mensaje)}`
       window.open(url, "_blank", "noopener,noreferrer")
@@ -216,70 +198,100 @@ ${shortMapLink}
       </header>
 
       <div className="space-y-6 px-4 pt-5">
+        {/* DIRECCIÓN Y CÁLCULO */}
         <section>
           <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-muted-foreground">Dirección de entrega</h2>
           <div className="space-y-3 rounded-3xl bg-card p-4 shadow-sm ring-1 ring-border">
             {address && (
               <p className="text-xs font-semibold text-add">
-                💾 Recordamos tu dirección anterior. Si cambió, modificala abajo.
+                💾 Recordamos tu dirección anterior.
               </p>
             )}
             <input
               value={address}
               onChange={(e) => setAddress(e.target.value)}
-              placeholder="Calle, número y depto"
+              placeholder="Calle y número (ej: Gales 2233)"
               className="h-12 w-full rounded-2xl bg-secondary px-4 text-sm font-medium text-foreground outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-ring"
             />
             <input
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              placeholder="Tu número de WhatsApp (ej: 2804123456)"
+              placeholder="Tu WhatsApp (ej: 2804123456)"
               className="h-12 w-full rounded-2xl bg-secondary px-4 text-sm font-medium text-foreground outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-ring"
             />
             <button
-              onClick={useMyLocation}
+              onClick={handleCalcularEnvio}
               disabled={isCalculating}
               className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-primary/30 bg-primary/5 text-sm font-bold text-primary disabled:opacity-50"
             >
               <LocateFixed className="size-4" />
-              {isCalculating ? "Calculando..." : "Calcular envío"}
+              {isCalculating ? "Calculando ruta..." : "Calcular costo de envío"}
             </button>
+            
+            {foundAddress && !error && (
+              <div className="flex items-start gap-2 rounded-2xl bg-add/10 p-3 text-xs">
+                <MapPin className="size-4 shrink-0 text-add mt-0.5" />
+                <span className="text-add"><strong>Encontramos:</strong> {foundAddress}</span>
+              </div>
+            )}
+            
             {error && <p className="text-xs font-semibold text-destructive">{error}</p>}
+            
             {deliveryFee > 0 && !error && (
-              <p className="text-sm font-bold text-add">✅ Costo de envío: {formatPrice(deliveryFee)} ({distanceKm.toFixed(1)} km)</p>
+              <div className="flex items-center justify-between rounded-2xl bg-add p-3">
+                <span className="text-sm font-bold text-add-foreground">Envío ({distanceKm.toFixed(1)} km)</span>
+                <span className="text-base font-extrabold text-add-foreground">{formatPrice(deliveryFee)}</span>
+              </div>
             )}
           </div>
         </section>
 
+        {/* ALIAS DE PAGO */}
         <section>
-          <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-muted-foreground">Método de pago</h2>
+          <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-muted-foreground">Formas de pago</h2>
           <div className="space-y-2">
-            {payments.map((opt) => {
-              const Icon = opt.icon
-              const active = payment === opt.id
-              return (
-                <button
-                  key={opt.id}
-                  onClick={() => setPayment(opt.id)}
-                  className={cn(
-                    "flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left transition-colors",
-                    active ? "border-add bg-add/5" : "border-border bg-card"
-                  )}
-                >
-                  <span className={cn("flex size-10 items-center justify-center rounded-full", active ? "bg-add text-add-foreground" : "bg-secondary text-primary")}>
-                    <Icon className="size-5" />
-                  </span>
-                  <span className="flex-1">
-                    <span className="block font-bold text-foreground">{opt.label}</span>
-                    <span className="block text-xs text-muted-foreground">{opt.note}</span>
-                  </span>
-                  <span className={cn("size-5 rounded-full border-2", active ? "border-add bg-add" : "border-border")} />
-                </button>
-              )
-            })}
+            <div className="rounded-2xl border border-add/30 bg-add/5 p-4">
+              <div className="flex items-start gap-3">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-add text-add-foreground">
+                  💵
+                </span>
+                <div>
+                  <p className="font-bold text-foreground">Efectivo al recibir</p>
+                  <p className="text-xs text-muted-foreground">Pagás cuando llegue el pedido</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="rounded-2xl border border-add/30 bg-add/5 p-4">
+              <div className="flex items-start gap-3">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-add text-add-foreground">
+                  🏦
+                </span>
+                <div className="flex-1">
+                  <p className="font-bold text-foreground">Transferencia / Mercado Pago</p>
+                  <p className="text-xs text-muted-foreground mb-2">Alias:</p>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 rounded-lg bg-background px-3 py-2 text-sm font-mono font-bold text-foreground">
+                      {config.alias_mercadopago}
+                    </code>
+                    <button
+                      onClick={copiarAlias}
+                      className="flex size-10 items-center justify-center rounded-lg bg-add text-add-foreground"
+                      aria-label="Copiar alias"
+                    >
+                      {copiedAlias ? <Check className="size-4" /> : <Copy className="size-4" />}
+                    </button>
+                  </div>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Titular: {config.nombre_titular_alias}
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 
+        {/* NOTAS */}
         <section>
           <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-muted-foreground">Instrucciones especiales</h2>
           <textarea
@@ -299,9 +311,10 @@ ${shortMapLink}
         </div>
         <button
           onClick={handlePlaceOrder}
-          className="flex h-14 w-full items-center justify-center rounded-full bg-add text-base font-bold text-add-foreground transition-transform active:scale-[0.98]"
+          disabled={!deliveryFee || !!error}
+          className="flex h-14 w-full items-center justify-center rounded-full bg-add text-base font-bold text-add-foreground transition-transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Confirmar y Generar Pedido
+          Confirmar y Enviar Pedido
         </button>
       </div>
     </div>
