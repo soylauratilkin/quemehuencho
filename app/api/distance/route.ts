@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
 
   if (!GOOGLE_MAPS_API_KEY) {
     return NextResponse.json(
-      { error: "API Key de Google Maps no configurada" },
+      { error: "API Key de Google Maps no configurada", key: "missing" },
       { status: 500 }
     );
   }
@@ -30,6 +30,13 @@ export async function GET(request: NextRequest) {
     const response = await fetch(url);
     const data = await response.json();
 
+    if (data.status === "REQUEST_DENIED") {
+      return NextResponse.json(
+        { error: "API Key rechazada", details: data.error_message },
+        { status: 403 }
+      );
+    }
+
     if (data.rows && data.rows[0] && data.rows[0].elements[0].status === "OK") {
       const distanciaMetros = data.rows[0].elements[0].distance.value;
       const distanciaKm = distanciaMetros / 1000;
@@ -42,7 +49,7 @@ export async function GET(request: NextRequest) {
     }
   } catch (error) {
     return NextResponse.json(
-      { error: "Error al contactar Google Maps" },
+      { error: "Error al contactar Google Maps", details: String(error) },
       { status: 500 }
     );
   }

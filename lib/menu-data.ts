@@ -24,8 +24,20 @@ export const formatPrice = (price: number) => {
   }).format(price);
 };
 
-// ⚠️ REEMPLAZÁ ESTO con tu URL de Google Sheets publicada como CSV
-export const MENU_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSIZsfI1fWq7zCV3Vc_u2v5A-Tgk_XxYo5P0EqjzLfC1QTcORVdkvanwuYiXxM2dQuUjB4uv_qM4GfW/pub?gid=0&single=true&output=csv"; 
+// URLs de tus Google Sheets publicadas como CSV
+export const MENU_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSIZsfI1fWq7zCV3Vc_u2v5A-Tgk_XxYo5P0EqjzLfC1QTcORVdkvanwuYiXxM2dQuUjB4uv_qM4GfW/pub?gid=0&single=true&output=csv";
+export const CONFIG_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSIZsfI1fWq7zCV3Vc_u2v5A-Tgk_XxYo5P0EqjzLfC1QTcORVdkvanwuYiXxM2dQuUjB4uv_qM4GfW/pub?gid=1021721216&single=true&output=csv"; // Pegá la URL de la hoja Config
+
+// Configuración por defecto (fallback)
+export const DEFAULT_CONFIG = {
+  telefono_delivery: "5492804602800",
+  telefono_quemehuencho: "5492804007296",
+  envio_minimo: 4000,
+  horario_apertura: "09:00",
+  horario_cierre: "23:00",
+  esta_online: true,
+  direccion_local: "Roque Sáenz Peña 212, Puerto Madryn",
+};
 
 export const PRECIOS_ENVIO = [
   { km_min: 0, km_max: 1.6, precio: 4000 },
@@ -48,7 +60,6 @@ export function calcularPrecioEnvio(distanciaKm: number): number | null {
   return rango ? rango.precio : null;
 }
 
-// Este es el array que home-screen.tsx importa automáticamente como "fallbackProducts"
 export const products: Product[] = [
   { id: "combo-libre", name: "churroLIBRE!", description: "1 chocolate grande + todos los churros que quieras!", price: 12500, category: "combos", popular: true },
   { id: "promo-todo-choco", name: "promoTODOchoco!", description: "1 chocolate mediano + 1 choco + 1 coco + 1 mani", price: 8500, category: "combos" },
@@ -87,6 +98,36 @@ export async function fetchProductsFromGoogleSheet(csvUrl: string): Promise<Prod
     return productsList.filter((p) => ["combos", "docenas", "unidad"].includes(p.category));
   } catch (error) {
     console.error("Error fetching menu:", error);
-    return products; // Fallback al array de arriba si falla la conexión
+    return products;
+  }
+}
+
+export async function fetchConfig(): Promise<typeof DEFAULT_CONFIG> {
+  if (!CONFIG_CSV_URL) return DEFAULT_CONFIG;
+  
+  try {
+    const response = await fetch(CONFIG_CSV_URL);
+    const text = await response.text();
+    const lines = text.split("\n").filter((line) => line.trim() !== "");
+    
+    const config = { ...DEFAULT_CONFIG };
+    for (let i = 1; i < lines.length; i++) {
+      const [clave, valor] = lines[i].split(",").map(s => s.trim());
+      if (clave && valor) {
+        if (clave in config) {
+          if (clave === "esta_online") {
+            (config as any)[clave] = valor.toLowerCase() === "true";
+          } else if (clave === "envio_minimo") {
+            (config as any)[clave] = parseInt(valor, 10);
+          } else {
+            (config as any)[clave] = valor;
+          }
+        }
+      }
+    }
+    return config;
+  } catch (error) {
+    console.error("Error fetching config:", error);
+    return DEFAULT_CONFIG;
   }
 }

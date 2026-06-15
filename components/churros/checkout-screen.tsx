@@ -1,8 +1,8 @@
 "use client"
 
-import { useState } from "react"
-import { ArrowLeft, Banknote, CreditCard, Link2, LocateFixed, MapPin, Store } from "lucide-react"
-import { formatPrice, calcularPrecioEnvio } from "@/lib/menu-data"
+import { useState, useEffect } from "react"
+import { ArrowLeft, Banknote, CreditCard, Link2, LocateFixed, MapPin } from "lucide-react"
+import { formatPrice, calcularPrecioEnvio, fetchConfig, DEFAULT_CONFIG } from "@/lib/menu-data"
 import { useStore } from "./store"
 import { cn } from "@/lib/utils"
 
@@ -11,29 +11,6 @@ const payments = [
   { id: "Mercado Pago", label: "Mercado Pago", note: "Te enviamos el link", icon: Link2 },
   { id: "Transferencia", label: "Transferencia", note: "Compartinos el comprobante", icon: CreditCard },
 ]
-
-// Primero, agregá esto al inicio de checkout-screen.tsx
-const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
-const DIRECCION_LOCAL = "Roque Sáenz Peña 212, Puerto Madryn, Argentina";
-
-async function calcularDistanciaReal(direccionDestino: string): Promise<number | null> {
-  try {
-    const response = await fetch(
-      `/api/distance?destino=${encodeURIComponent(direccionDestino)}`
-    );
-    
-    if (!response.ok) {
-      console.error("Error en la API:", await response.text());
-      return null;
-    }
-
-    const data = await response.json();
-    return data.distancia;
-  } catch (error) {
-    console.error("Error calculando distancia:", error);
-    return null;
-  }
-}
 
 export function CheckoutScreen() {
   const { subtotal, items, placeOrder, setScreen, orderDetails, setOrderDetails } = useStore()
@@ -45,70 +22,107 @@ export function CheckoutScreen() {
   const [distanceKm, setDistanceKm] = useState(orderDetails?.distanceKm || 0)
   const [deliveryFee, setDeliveryFee] = useState(orderDetails?.deliveryFee || 0)
   const [error, setError] = useState("")
+  const [config, setConfig] = useState(DEFAULT_CONFIG)
+
+  useEffect(() => {
+    fetchConfig().then(setConfig)
+  }, [])
 
   const total = subtotal + deliveryFee
 
-async function useMyLocation() {
-  setIsCalculating(true);
-  setError("");
+  async function calcularDistanciaReal(direccionDestino: string): Promise<number | null> {
+    try {
+      const response = await fetch(
+        `/api/distance?destino=${encodeURIComponent(direccionDestino)}`
+      )
+      
+      if (!response.ok) {
+        const errorData = await response.json()
+        console.error("Error en la API:", errorData)
+        setError(`Error: ${errorData.error || "No se pudo calcular"}`)
+        return null
+      }
 
-  if (!address.trim()) {
-    setError("Primero escribí tu dirección arriba.");
-    setIsCalculating(false);
-    return;
+      const data = await response.json()
+      return data.distancia
+    } catch (error) {
+      console.error("Error calculando distancia:", error)
+      setError("Error de conexión. Intentá de nuevo.")
+      return null
+    }
   }
 
-  try {
-    const distancia = await calcularDistanciaReal(address);
-    
-    if (distancia === null) {
-      setError("No pudimos calcular la distancia. Verificá la dirección.");
-      setIsCalculating(false);
-      return;
+  async function useMyLocation() {
+    setIsCalculating(true)
+    setError("")
+
+    if (!address.trim()) {
+      setError("Primero escribí tu dirección arriba.")
+      setIsCalculating(false)
+      return
     }
 
-    setDistanceKm(distancia);
-    
-    const fee = calcularPrecioEnvio(distancia);
-    if (fee) {
-      setDeliveryFee(fee);
-    } else {
-      setError("Lo sentimos, estás fuera de nuestra zona de delivery (máx 10 km).");
+    try {
+      const distancia = await calcularDistanciaReal(address)
+      
+      if (distancia === null) {
+        setIsCalculating(false)
+        return
+      }
+
+      setDistanceKm(distancia)
+      
+      const fee = calcularPrecioEnvio(distancia)
+      if (fee) {
+        setDeliveryFee(fee)
+      } else {
+        setError("Lo sentimos, estás fuera de nuestra zona de delivery (máx 10 km).")
+      }
+    } catch (err) {
+      setError("Error al calcular la distancia. Intentá de nuevo.")
     }
-  } catch (err) {
-    setError("Error al calcular la distancia. Intentá de nuevo.");
-  }
-  
-  setIsCalculating(false);
-}
-function handlePlaceOrder() {
-  if (!address || !phone) {
-    alert("Por favor, completá tu dirección y teléfono.")
-    return
-  }
-  if (deliveryFee === 0 && !error) {
-    alert("Por favor, calculá el costo de envío primero.")
-    return
+    
+    setIsCalculating(false)
   }
 
-  const details = { address, phone, distanceKm, deliveryFee, paymentMethod: payment, notes }
-  setOrderDetails(details)
-  placeOrder(details)
-  
-  // Abrir WhatsApp automáticamente después de confirmar
-  setTimeout(() => {
-    const itemsList = items.map((i) => `• ${i.quantity}x ${i.name}`).join("\n")
-    const mapLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address + ", Puerto Madryn")}`
-    const now = new Date().toLocaleString("es-AR")
-    const orderId = `QMH-${Math.floor(Math.random() * 9000) + 1000}`
+  async function acortarLink(url: string): Promise<string> {
+    try {
+      const response = await fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(url)}`)
+      const shortUrl = await response.text()
+      return shortUrl.startsWith("http") ? shortUrl : url
+    } catch {
+      return url
+    }
+  }
 
-    const mensaje = `🚀 *PEDIDO CONFIRMADO* 🚀
+  async function handlePlaceOrder() {
+    if (!address || !phone) {
+      alert("Por favor, completá tu dirección y teléfono.")
+      return
+    }
+    if (deliveryFee === 0 && !error) {
+      alert("Por favor, calculá el costo de envío primero.")
+      return
+    }
+
+    const details = { address, phone, distanceKm, deliveryFee, paymentMethod: payment, notes }
+    setOrderDetails(details)
+    placeOrder(details)
+    
+    setTimeout(async () => {
+      const itemsList = items.map((i) => `• ${i.quantity}x ${i.name}`).join("\n")
+      const mapLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address + ", Puerto Madryn")}`
+      const shortMapLink = await acortarLink(mapLink)
+      const now = new Date().toLocaleString("es-AR")
+      const orderId = `QMH-${Math.floor(Math.random() * 9000) + 1000}`
+
+      const mensaje = `🚀 *PEDIDO CONFIRMADO* 🚀
 
 📦 *DETALLES DEL ENVÍO*
 ━━━━━━━━━━━━━━━━
 🏪 *PUNTO DE RETIRO*
-📍 Roque Sáenz Peña 212
-📱 5492804007296
+📍 ${config.direccion_local}
+📱 ${config.telefono_quemehuencho}
 
 🏠 *PUNTO DE ENTREGA*
 📍 ${address}
@@ -126,58 +140,14 @@ Subtotal: ${formatPrice(subtotal)}
 📝 Notas: ${notes || "Ninguna"}
 
 🗺️ *MAPA*
-${mapLink}
+${shortMapLink}
 
 🆔 ID: ${orderId}
 🕒 ${now}`
 
-    const numeroDelivery = "5492804272523" // Cambiá esto por el número de la empresa de delivery
-    const url = `https://wa.me/${numeroDelivery}?text=${encodeURIComponent(mensaje)}`
-    window.open(url, "_blank", "noopener,noreferrer")
-  }, 500)
-}
-
-  function handleWhatsApp() {
-    if (!orderDetails) return
-    
-    const itemsList = items.map((i) => `• ${i.quantity}x ${i.name}`).join("\n")
-    const mapLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(orderDetails.address + ", Puerto Madryn")}`
-    const now = new Date().toLocaleString("es-AR")
-    const orderId = `QMH-${Math.floor(Math.random() * 9000) + 1000}`
-
-    const mensaje = `🚀 *VIAJE CONFIRMADO* 🚀
-
-📦 *DETALLES DEL ENVÍO*
-━━━━━━━━━━━━━━━━
-🏪 *PUNTO DE RETIRO*
-📍 Roque Sáenz Peña 212
-📱 5492804007296
-
-🏠 *PUNTO DE ENTREGA*
-📍 ${orderDetails.address}
-📱 ${orderDetails.phone}
-👌 *DETALLES*
-📏 Distancia: ${orderDetails.distanceKm.toFixed(1)} km
-
-📦 *Pedido:*
-${itemsList}
-Subtotal: ${formatPrice(subtotal)}
-
-🏍️ Envío: *${formatPrice(orderDetails.deliveryFee)}*
-💰 *Total: ${formatPrice(total)}*
-💳 Método: ${orderDetails.paymentMethod}
-📝 Notas: ${orderDetails.notes || "Ninguna"}
-
-🗺️ *MAPA*
-${mapLink}
-
-🆔 ID: ${orderId}
-🕒 ${now}`
-
-    // Reemplaza este número con el de la empresa de delivery o el tuyo
-    const numeroDelivery = "5492804007296" 
-    const url = `https://wa.me/${numeroDelivery}?text=${encodeURIComponent(mensaje)}`
-    window.open(url, "_blank", "noopener,noreferrer")
+      const url = `https://wa.me/${config.telefono_quemehuencho}?text=${encodeURIComponent(mensaje)}`
+      window.open(url, "_blank", "noopener,noreferrer")
+    }, 500)
   }
 
   return (
@@ -211,11 +181,11 @@ ${mapLink}
               className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-primary/30 bg-primary/5 text-sm font-bold text-primary disabled:opacity-50"
             >
               <LocateFixed className="size-4" />
-              {isCalculating ? "Calculando..." : "Usar mi ubicación"}
+              {isCalculating ? "Calculando..." : "Calcular envío"}
             </button>
             {error && <p className="text-xs font-semibold text-destructive">{error}</p>}
             {deliveryFee > 0 && !error && (
-              <p className="text-sm font-bold text-add">✅ Costo de envío calculado: {formatPrice(deliveryFee)}</p>
+              <p className="text-sm font-bold text-add">✅ Costo de envío: {formatPrice(deliveryFee)} ({distanceKm.toFixed(1)} km)</p>
             )}
           </div>
         </section>
@@ -259,17 +229,6 @@ ${mapLink}
             className="w-full resize-none rounded-2xl bg-card p-4 text-sm font-medium text-foreground shadow-sm outline-none ring-1 ring-border placeholder:text-muted-foreground focus:ring-2 focus:ring-ring"
           />
         </section>
-
-        <button
-          onClick={handleWhatsApp}
-          disabled={!orderDetails}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl border border-add/40 bg-add/5 py-3 text-sm font-bold text-add disabled:opacity-50"
-        >
-          <svg viewBox="0 0 24 24" className="size-5 fill-current" aria-hidden="true">
-            <path d="M.057 24l1.687-6.163a11.867 11.867 0 01-1.587-5.945C.16 5.335 5.495 0 12.05 0a11.82 11.82 0 018.413 3.488 11.82 11.82 0 013.48 8.414c-.003 6.557-5.338 11.892-11.893 11.892a11.9 11.9 0 01-5.688-1.448L.057 24zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884a9.86 9.86 0 001.51 5.26l-.999 3.648 3.578-.985zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z" />
-          </svg>
-          Enviar pedido por WhatsApp
-        </button>
       </div>
 
       <div className="fixed inset-x-0 bottom-0 z-20 mx-auto max-w-md border-t border-border bg-card px-4 py-4">
