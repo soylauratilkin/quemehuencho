@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ArrowLeft, LocateFixed, MapPin, Copy, Check, Navigation } from "lucide-react"
+import { ArrowLeft, LocateFixed, MapPin, Copy, Check, Navigation, Store } from "lucide-react"
 import { formatPrice, calcularPrecioEnvio, fetchConfig, DEFAULT_CONFIG } from "@/lib/menu-data"
 import { useStore } from "./store"
 
@@ -33,14 +33,16 @@ export function CheckoutScreen() {
   const [copiedAlias, setCopiedAlias] = useState(false)
   const [foundAddress, setFoundAddress] = useState("")
   const [addressModified, setAddressModified] = useState(false)
+  const [showModal, setShowModal] = useState(false)
+  const [whatsappMessage, setWhatsappMessage] = useState("")
+  const [pickupInStore, setPickupInStore] = useState(false)
 
   useEffect(() => {
     fetchConfig().then(setConfig)
   }, [])
 
-  // Si el usuario modifica la dirección, resetear distancia y costo
   useEffect(() => {
-    if (addressModified && deliveryFee > 0) {
+    if (addressModified && deliveryFee > 0 && !pickupInStore) {
       setDeliveryFee(0)
       setDistanceKm(0)
       setFoundAddress("")
@@ -48,13 +50,11 @@ export function CheckoutScreen() {
     }
   }, [address])
 
-  const total = subtotal + deliveryFee
+  const total = subtotal + (pickupInStore ? 0 : deliveryFee)
 
   async function calcularDistanciaReal(direccionDestino: string) {
     try {
-      const response = await fetch(
-        `/api/distance?destino=${encodeURIComponent(direccionDestino)}`
-      )
+      const response = await fetch(`/api/distance?destino=${encodeURIComponent(direccionDestino)}`)
       
       if (!response.ok) {
         const errorData = await response.json()
@@ -113,7 +113,7 @@ export function CheckoutScreen() {
       }
 
       setDistanceKm(distancia)
-      setAddressModified(false) // Resetear flag
+      setAddressModified(false)
       
       const fee = calcularPrecioEnvio(distancia)
       if (fee) {
@@ -181,147 +181,125 @@ export function CheckoutScreen() {
     setTimeout(() => setCopiedAlias(false), 2000)
   }
 
-async function acortarLink(url: string): Promise<string> {
-  try {
-    const response = await fetch(`/api/shorten?url=${encodeURIComponent(url)}`);
-    const data = await response.json();
-    return data.shortUrl || url;
-  } catch {
-    return url;
-  }
-}
-
-function limpiarDireccion(direccionCompleta: string): string {
-  if (!direccionCompleta) return ""
-  
-  // La dirección viene como: "Gales 2233, U9120 Puerto Madryn, Chubut, Argentina"
-  // Queremos solo: "Gales 2233, Puerto Madryn"
-  
-  const partes = direccionCompleta.split(",").map(p => p.trim())
-  
-  // Primera parte: calle y número (la dejamos tal cual)
-  const calle = partes[0] || ""
-  
-  // Buscar "Puerto Madryn" en alguna parte
-  const ciudad = partes.find(p => 
-    p.toLowerCase().includes("puerto madryn") || 
-    p.toLowerCase().includes("madryn")
-  ) || "Puerto Madryn"
-  
-  // Limpiar el código postal (U9120, H9120, etc.)
-  const ciudadLimpia = ciudad.replace(/U?\d{4}\s*/i, "").trim()
-  
-  return `${calle}, ${ciudadLimpia}`
-}
-async function handlePlaceOrder() {
-  if (!address || !phone) {
-    alert("Por favor, completá tu dirección y teléfono.")
-    return
-  }
-  if (deliveryFee === 0 && !error) {
-    alert("Por favor, calculá el costo de envío primero.")
-    return
+  async function acortarLink(url: string): Promise<string> {
+    try {
+      const response = await fetch(`/api/shorten?url=${encodeURIComponent(url)}`)
+      const data = await response.json()
+      return data.shortUrl || url
+    } catch {
+      return url
+    }
   }
 
-  localStorage.setItem("qh_address", address)
-  localStorage.setItem("qh_phone", phone)
-  localStorage.setItem("qh_last_order", new Date().toISOString())
-
-  const details = { address, phone, distanceKm, deliveryFee, paymentMethod: "A definir", notes }
-  setOrderDetails(details)
-  placeOrder(details)
-  
-  // Guardar en Google Sheets (garantía de que el pedido se registra)
-  if (WEBHOOK_URL) {
-    const orderId = `QMH-${Math.floor(Math.random() * 9000) + 1000}`
-    fetch(WEBHOOK_URL, {
-      method: "POST",
-      mode: "no-cors",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        id: orderId,
-        phone: phone,
-        address: address,
-        total: formatPrice(total),
-        items: items
-      })
-    }).catch(err => console.error("Error guardando en Sheets:", err))
+  function limpiarDireccion(direccionCompleta: string): string {
+    if (!direccionCompleta) return ""
+    const partes = direccionCompleta.split(",").map(p => p.trim())
+    const calle = partes[0] || ""
+    const ciudad = partes.find(p => 
+      p.toLowerCase().includes("puerto madryn") || 
+      p.toLowerCase().includes("madryn")
+    ) || "Puerto Madryn"
+    const ciudadLimpia = ciudad.replace(/U?\d{4}\s*/i, "").trim()
+    return `${calle}, ${ciudadLimpia}`
   }
 
-  // Mostrar pantalla de confirmación con fallback
-  // (El modal se muestra automáticamente porque deliveryFee > 0)
-  
-  // Intentar abrir WhatsApp después de 1 segundo
-  setTimeout(async () => {
+  async function generarMensajeWhatsApp(): Promise<string> {
     const itemsList = items.map((i) => `• ${i.quantity}x ${i.name}`).join("\n")
     const now = new Date().toLocaleString("es-AR", { 
-      day: "2-digit", 
-      month: "2-digit", 
-      hour: "2-digit", 
-      minute: "2-digit",
-      hour12: false
+      day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false
     }).replace(",", "")
     
     const orderId = `QMH-${Math.floor(Math.random() * 9000) + 1000}`
-    const direccionLimpia = limpiarDireccion(foundAddress) || address
+    const direccionLimpia = pickupInStore ? "Retiro en local" : (limpiarDireccion(foundAddress) || address)
     
-    const mapLink = await acortarLink(
-      `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(
-        config.direccion_local
-      )}&destination=${encodeURIComponent(direccionLimpia)}&travelmode=driving`
-    )
+    let mapLink = ""
+    if (!pickupInStore) {
+      mapLink = await acortarLink(
+        `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(config.direccion_local)}&destination=${encodeURIComponent(direccionLimpia)}&travelmode=driving`
+      )
+    }
     
     const linkTransferencia = await acortarLink(
-      `https://wa.me/${config.telefono_quemehuencho}?text=${encodeURIComponent(
-        `Transferencia pedido ${orderId} ${formatPrice(total)}`
-      )}`
+      `https://wa.me/${config.telefono_quemehuencho}?text=${encodeURIComponent(`Transferencia ${orderId} ${formatPrice(total)}`)}`
     )
     
     const linkEfectivo = await acortarLink(
-      `https://wa.me/${config.telefono_quemehuencho}?text=${encodeURIComponent(
-        `Efectivo pedido ${orderId} ${formatPrice(total)}`
-      )}`
+      `https://wa.me/${config.telefono_quemehuencho}?text=${encodeURIComponent(`Efectivo ${orderId} ${formatPrice(total)}`)}`
     )
 
-    const mensaje = `🚀 *NUEVO PEDIDO* 🚀
-
-🆔 *ID:* ${orderId}
+    const mensaje = `🚀 *PEDIDO ${orderId}*
 🕒 ${now}
 
-━━━━━━━━━━━━━━━━
-🏪 *PUNTO DE RETIRO*
-📍 ${config.direccion_local}
+🏪 *Retiro:* ${config.direccion_local}
+${!pickupInStore ? `🏠 *Entrega:* ${direccionLimpia}
+📱 ${phone} | 📏 ${distanceKm.toFixed(1)} km
 
-🏠 *PUNTO DE ENTREGA*
-📍 ${direccionLimpia}
-📱 ${phone}
-📏 Distancia: ${distanceKm.toFixed(1)} km
+🗺️ Ruta: ${mapLink}` : `📱 ${phone}`}
 
-🗺️ *RUTA DELIVERY:*
-${mapLink}
-━━━━━━━━━━━━━━━━
+📦 ${itemsList}
 
-📦 *Pedido:*
-${itemsList}
-
-💵 Subtotal: ${formatPrice(subtotal)}
-🏍️ Envío: ${formatPrice(deliveryFee)}
+💵 ${formatPrice(subtotal)}${!pickupInStore ? ` + 🏍️ ${formatPrice(deliveryFee)}` : ""}
 💰 *TOTAL: ${formatPrice(total)}*
-${notes ? `\n📝 Notas: ${notes}` : ""}
+${notes ? `📝 ${notes}` : ""}
 
-━━━━━━━━━━━━━━━━
-💳 *FORMAS DE PAGO*
-━━━━━━━━━━━━━━━━
-🏦 Alias: *${config.alias_mercadopago}*
-(${config.nombre_titular_alias})
-
+💳 Alias: *${config.alias_mercadopago}*
 💵 Efectivo: ${linkEfectivo}
 🏦 Transferencia: ${linkTransferencia}`
 
-    const url = `https://wa.me/${config.telefono_quemehuencho}?text=${encodeURIComponent(mensaje)}`
+    return mensaje
+  }
+
+  async function handlePlaceOrder() {
+    if (!phone) {
+      alert("Por favor, completá tu teléfono.")
+      return
+    }
+    if (!pickupInStore && (!address || deliveryFee === 0)) {
+      alert("Por favor, completá tu dirección y calculá el costo de envío.")
+      return
+    }
+
+    localStorage.setItem("qh_address", pickupInStore ? "" : address)
+    localStorage.setItem("qh_phone", phone)
+    localStorage.setItem("qh_last_order", new Date().toISOString())
+
+    const details = { 
+      address: pickupInStore ? "Retiro en local" : address, 
+      phone, 
+      distanceKm: pickupInStore ? 0 : distanceKm, 
+      deliveryFee: pickupInStore ? 0 : deliveryFee, 
+      paymentMethod: "A definir", 
+      notes: pickupInStore ? `${notes} (RETIRA EN LOCAL)` : notes 
+    }
+    setOrderDetails(details)
+    placeOrder(details)
+    
+    if (WEBHOOK_URL) {
+      fetch(WEBHOOK_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: details.address,
+          phone: phone,
+          address: details.address,
+          total: formatPrice(total),
+          items: items
+        })
+      }).catch(err => console.error("Error guardando en Sheets:", err))
+    }
+
+    // Generar mensaje ANTES de mostrar el modal
+    const mensaje = await generarMensajeWhatsApp()
+    setWhatsappMessage(mensaje)
+    setShowModal(true)
+  }
+
+  function handleConfirmarWhatsApp() {
+    const url = `https://wa.me/${config.telefono_quemehuencho}?text=${encodeURIComponent(whatsappMessage)}`
     window.open(url, "_blank", "noopener,noreferrer")
-  }, 1000)
-}
+    setScreen("success")
+  }
 
   return (
     <div className="flex min-h-dvh flex-col pb-44">
@@ -333,71 +311,119 @@ ${notes ? `\n📝 Notas: ${notes}` : ""}
       </header>
 
       <div className="space-y-6 px-4 pt-5">
-        
-        {/* DIRECCIÓN Y CÁLCULO */}
+        {/* MODO DE ENTREGA */}
         <section>
-          <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-muted-foreground">Dirección de entrega</h2>
-          <div className="space-y-3 rounded-3xl bg-card p-4 shadow-sm ring-1 ring-border">
-            {address && !addressModified && (
-              <p className="text-xs font-semibold text-add">
-                💾 Recordamos tu dirección anterior.
-              </p>
-            )}
-            <input
-              value={address}
-              onChange={(e) => {
-                setAddress(e.target.value)
-                setAddressModified(true)
+          <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-muted-foreground">Modo de entrega</h2>
+          <div className="space-y-2">
+            <button
+              onClick={() => setPickupInStore(false)}
+              className={`flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left transition-colors ${
+                !pickupInStore ? "border-add bg-add/5" : "border-border bg-card"
+              }`}
+            >
+              <span className={`flex size-10 items-center justify-center rounded-full ${
+                !pickupInStore ? "bg-add text-add-foreground" : "bg-secondary text-primary"
+              }`}>
+                <Navigation className="size-5" />
+              </span>
+              <span className="flex-1">
+                <span className="block font-bold text-foreground">Delivery a domicilio</span>
+                <span className="block text-xs text-muted-foreground">Te lo llevamos a tu casa</span>
+              </span>
+            </button>
+            
+            <button
+              onClick={() => {
+                setPickupInStore(true)
+                setDeliveryFee(0)
+                setDistanceKm(0)
+                setError("")
               }}
-              placeholder="Calle y número (ej: Gales 2233)"
-              className="h-12 w-full rounded-2xl bg-secondary px-4 text-sm font-medium text-foreground outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-ring"
-            />
-            <input
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="Tu WhatsApp (ej: 2804123456)"
-              className="h-12 w-full rounded-2xl bg-secondary px-4 text-sm font-medium text-foreground outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-ring"
-            />
-            
-            {/* Botones de cálculo */}
-            <div className="space-y-2">
-              <button
-                onClick={handleCalcularEnvio}
-                disabled={isCalculating}
-                className={`flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-primary/30 bg-primary/5 text-sm font-bold text-primary disabled:opacity-50 ${
-                  deliveryFee === 0 && !error ? "animate-pulse-warning" : ""
-                }`}
-              >
-                <LocateFixed className="size-4" />
-                {isCalculating ? "Calculando ruta..." : "Calcular desde dirección"}
-              </button>
-              
-              <button
-                onClick={handleUsarMiUbicacion}
-                disabled={isCalculating}
-                className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-add/30 bg-add/5 text-sm font-bold text-add disabled:opacity-50"
-              >
-                <Navigation className="size-4" />
-                {isCalculating ? "Obteniendo ubicación..." : "Usar mi ubicación actual (GPS)"}
-              </button>
-            </div>
-            
-            {foundAddress && !error && (
-              <div className="flex items-start gap-2 rounded-2xl bg-add/10 p-3 text-xs">
-                <MapPin className="size-4 shrink-0 text-add mt-0.5" />
-                <span className="text-add"><strong>Encontramos:</strong> {foundAddress}</span>
-              </div>
-            )}
-            
-            {error && <p className="text-xs font-semibold text-destructive">{error}</p>}
-            
-            {deliveryFee > 0 && !error && (
-              <div className="flex items-center justify-between rounded-2xl bg-add p-3">
-                <span className="text-sm font-bold text-add-foreground">Envío ({distanceKm.toFixed(1)} km)</span>
-                <span className="text-base font-extrabold text-add-foreground">{formatPrice(deliveryFee)}</span>
-              </div>
-            )}
+              className={`flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left transition-colors ${
+                pickupInStore ? "border-add bg-add/5" : "border-border bg-card"
+              }`}
+            >
+              <span className={`flex size-10 items-center justify-center rounded-full ${
+                pickupInStore ? "bg-add text-add-foreground" : "bg-secondary text-primary"
+              }`}>
+                <Store className="size-5" />
+              </span>
+              <span className="flex-1">
+                <span className="block font-bold text-foreground">Retirar en el local</span>
+                <span className="block text-xs text-muted-foreground">Sin costo de envío</span>
+              </span>
+            </button>
           </div>
+        </section>
+
+        {/* DIRECCIÓN Y CÁLCULO (solo si es delivery) */}
+        {!pickupInStore && (
+          <section>
+            <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-muted-foreground">Dirección de entrega</h2>
+            <div className="space-y-3 rounded-3xl bg-card p-4 shadow-sm ring-1 ring-border">
+              {address && !addressModified && (
+                <p className="text-xs font-semibold text-add">💾 Recordamos tu dirección anterior.</p>
+              )}
+              <input
+                value={address}
+                onChange={(e) => {
+                  setAddress(e.target.value)
+                  setAddressModified(true)
+                }}
+                placeholder="Calle y número (ej: Gales 2233)"
+                className="h-12 w-full rounded-2xl bg-secondary px-4 text-sm font-medium text-foreground outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-ring"
+              />
+              
+              <div className="space-y-2">
+                <button
+                  onClick={handleCalcularEnvio}
+                  disabled={isCalculating}
+                  className={`flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-primary/30 bg-primary/5 text-sm font-bold text-primary disabled:opacity-50 ${
+                    deliveryFee === 0 && !error ? "animate-pulse-warning" : ""
+                  }`}
+                >
+                  <LocateFixed className="size-4" />
+                  {isCalculating ? "Calculando ruta..." : "Calcular desde dirección"}
+                </button>
+                
+                <button
+                  onClick={handleUsarMiUbicacion}
+                  disabled={isCalculating}
+                  className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-add/30 bg-add/5 text-sm font-bold text-add disabled:opacity-50"
+                >
+                  <Navigation className="size-4" />
+                  {isCalculating ? "Obteniendo ubicación..." : "Usar mi ubicación actual (GPS)"}
+                </button>
+              </div>
+              
+              {foundAddress && !error && (
+                <div className="flex items-start gap-2 rounded-2xl bg-add/10 p-3 text-xs">
+                  <MapPin className="size-4 shrink-0 text-add mt-0.5" />
+                  <span className="text-add"><strong>Encontramos:</strong> {foundAddress}</span>
+                </div>
+              )}
+              
+              {error && <p className="text-xs font-semibold text-destructive">{error}</p>}
+              
+              {deliveryFee > 0 && !error && (
+                <div className="flex items-center justify-between rounded-2xl bg-add p-3">
+                  <span className="text-sm font-bold text-add-foreground">Envío ({distanceKm.toFixed(1)} km)</span>
+                  <span className="text-base font-extrabold text-add-foreground">{formatPrice(deliveryFee)}</span>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* TELÉFONO (siempre visible) */}
+        <section>
+          <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-muted-foreground">Tu teléfono</h2>
+          <input
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="Tu WhatsApp (ej: 2804123456)"
+            className="h-12 w-full rounded-2xl bg-card px-4 text-sm font-medium text-foreground shadow-sm outline-none ring-1 ring-border placeholder:text-muted-foreground focus:ring-2 focus:ring-ring"
+          />
         </section>
 
         {/* ALIAS DE PAGO */}
@@ -406,9 +432,7 @@ ${notes ? `\n📝 Notas: ${notes}` : ""}
           <div className="space-y-2">
             <div className="rounded-2xl border border-add/30 bg-add/5 p-4">
               <div className="flex items-start gap-3">
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-add text-add-foreground">
-                  💵
-                </span>
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-add text-add-foreground">💵</span>
                 <div>
                   <p className="font-bold text-foreground">Efectivo al recibir</p>
                   <p className="text-xs text-muted-foreground">Pagás cuando llegue el pedido</p>
@@ -418,9 +442,7 @@ ${notes ? `\n📝 Notas: ${notes}` : ""}
             
             <div className="rounded-2xl border border-add/30 bg-add/5 p-4">
               <div className="flex items-start gap-3">
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-add text-add-foreground">
-                  🏦
-                </span>
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-add text-add-foreground">🏦</span>
                 <div className="flex-1">
                   <p className="font-bold text-foreground">Transferencia / Mercado Pago</p>
                   <p className="text-xs text-muted-foreground mb-2">Alias:</p>
@@ -436,9 +458,7 @@ ${notes ? `\n📝 Notas: ${notes}` : ""}
                       {copiedAlias ? <Check className="size-4" /> : <Copy className="size-4" />}
                     </button>
                   </div>
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Titular: {config.nombre_titular_alias}
-                  </p>
+                  <p className="mt-2 text-xs text-muted-foreground">Titular: {config.nombre_titular_alias}</p>
                 </div>
               </div>
             </div>
@@ -465,48 +485,50 @@ ${notes ? `\n📝 Notas: ${notes}` : ""}
         </div>
         <button
           onClick={handlePlaceOrder}
-          disabled={!deliveryFee || !!error}
+          disabled={pickupInStore ? !phone : (!deliveryFee || !!error)}
           className="flex h-14 w-full items-center justify-center rounded-full bg-add text-base font-bold text-add-foreground transition-transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Confirmar y Enviar Pedido
+          Confirmar Pedido
         </button>
       </div>
-      {deliveryFee > 0 && (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-    <div className="mx-4 max-w-md rounded-3xl bg-card p-6 shadow-2xl">
-      <div className="mb-4 text-center">
-        <div className="mx-auto mb-3 flex size-16 items-center justify-center rounded-full bg-add text-add-foreground">
-          <Check className="size-8" />
+
+      {/* MODAL DE CONFIRMACIÓN */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="max-w-md w-full rounded-3xl bg-card p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="mb-4 text-center">
+              <div className="mx-auto mb-3 flex size-16 items-center justify-center rounded-full bg-add text-add-foreground">
+                <Check className="size-8" />
+              </div>
+              <h3 className="text-xl font-bold text-foreground">¡Pedido listo!</h3>
+            </div>
+            
+            <div className="mb-4 rounded-2xl bg-secondary p-4 text-sm">
+              <p className="font-bold mb-2">Resumen:</p>
+              <p>{items.length} producto(s)</p>
+              <p>{pickupInStore ? "Retiro en local" : `Delivery a ${address}`}</p>
+              <p className="font-bold mt-2">Total: {formatPrice(total)}</p>
+            </div>
+            
+            <button
+              onClick={handleConfirmarWhatsApp}
+              className="mb-3 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-add text-base font-bold text-add-foreground"
+            >
+              <svg viewBox="0 0 24 24" className="size-5 fill-current">
+                <path d="M.057 24l1.687-6.163a11.867 11.867 0 01-1.587-5.945C.16 5.335 5.495 0 12.05 0a11.82 11.82 0 018.413 3.488 11.82 11.82 0 013.48 8.414c-.003 6.557-5.338 11.892-11.893 11.892a11.9 11.9 0 01-5.688-1.448L.057 24zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884a9.86 9.86 0 001.51 5.26l-.999 3.648 3.578-.985zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z" />
+              </svg>
+              Confirmar por WhatsApp
+            </button>
+            
+            <button
+              onClick={() => setShowModal(false)}
+              className="flex h-12 w-full items-center justify-center rounded-full bg-secondary text-base font-bold text-secondary-foreground"
+            >
+              Volver
+            </button>
+          </div>
         </div>
-        <h3 className="text-xl font-bold text-foreground">¡Pedido confirmado!</h3>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Se abrió WhatsApp con tu pedido. Si no se abrió automáticamente, tocá el botón de abajo.
-        </p>
-      </div>
-      
-      <button
-        onClick={() => {
-          // Reintentar abrir WhatsApp
-          const url = `https://wa.me/${config.telefono_quemehuencho}?text=${encodeURIComponent("Pedido")}`
-          window.open(url, "_blank", "noopener,noreferrer")
-        }}
-        className="mb-3 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-add text-base font-bold text-add-foreground"
-      >
-        <svg viewBox="0 0 24 24" className="size-5 fill-current">
-          <path d="M.057 24l1.687-6.163a11.867 11.867 0 01-1.587-5.945C.16 5.335 5.495 0 12.05 0a11.82 11.82 0 018.413 3.488 11.82 11.82 0 013.48 8.414c-.003 6.557-5.338 11.892-11.893 11.892a11.9 11.9 0 01-5.688-1.448L.057 24zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884a9.86 9.86 0 001.51 5.26l-.999 3.648 3.578-.985zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z" />
-        </svg>
-        Reenviar por WhatsApp
-      </button>
-      
-      <button
-        onClick={() => setScreen("success")}
-        className="flex h-12 w-full items-center justify-center rounded-full bg-secondary text-base font-bold text-secondary-foreground"
-      >
-        Continuar sin enviar
-      </button>
-    </div>
-  </div>
-)}
+      )}
     </div>
   )
 }
