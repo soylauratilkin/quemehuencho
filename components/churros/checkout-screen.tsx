@@ -17,27 +17,18 @@ const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
 const DIRECCION_LOCAL = "Roque Sáenz Peña 212, Puerto Madryn, Argentina";
 
 async function calcularDistanciaReal(direccionDestino: string): Promise<number | null> {
-  if (!GOOGLE_MAPS_API_KEY) {
-    console.warn("No hay API Key de Google Maps. Usando estimación.");
-    return 3.5; // Fallback
-  }
-
   try {
-    const url = `https://maps.googleapis.com/maps/api/distancematrix/json?` +
-      `origins=${encodeURIComponent(DIRECCION_LOCAL)}&` +
-      `destinations=${encodeURIComponent(direccionDestino + ", Puerto Madryn, Argentina")}&` +
-      `mode=driving&key=${GOOGLE_MAPS_API_KEY}`;
-
-    const response = await fetch(url);
-    const data = await response.json();
-
-    if (data.rows[0].elements[0].status === "OK") {
-      const distanciaMetros = data.rows[0].elements[0].distance.value;
-      return distanciaMetros / 1000; // Convertir a km
-    } else {
-      console.error("Error en Distance Matrix:", data.rows[0].elements[0].status);
+    const response = await fetch(
+      `/api/distance?destino=${encodeURIComponent(direccionDestino)}`
+    );
+    
+    if (!response.ok) {
+      console.error("Error en la API:", await response.text());
       return null;
     }
+
+    const data = await response.json();
+    return data.distancia;
   } catch (error) {
     console.error("Error calculando distancia:", error);
     return null;
