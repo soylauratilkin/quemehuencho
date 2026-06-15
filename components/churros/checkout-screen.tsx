@@ -181,16 +181,41 @@ export function CheckoutScreen() {
     setTimeout(() => setCopiedAlias(false), 2000)
   }
 
-  async function acortarLink(url: string): Promise<string> {
-    try {
-      const response = await fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(url)}`)
-      const shortUrl = await response.text()
-      return shortUrl.startsWith("http") ? shortUrl : url
-    } catch {
-      return url
-    }
+async function acortarLink(url: string): Promise<string> {
+  try {
+    // is.gd: sin pantalla intermedia, sin API key, redirección directa
+    const response = await fetch(
+      `https://is.gd/create.php?format=simple&url=${encodeURIComponent(url)}`
+    )
+    const shortUrl = await response.text()
+    return shortUrl.startsWith("http") ? shortUrl.trim() : url
+  } catch {
+    return url
   }
+}
 
+function limpiarDireccion(direccionCompleta: string): string {
+  if (!direccionCompleta) return ""
+  
+  // La dirección viene como: "Gales 2233, U9120 Puerto Madryn, Chubut, Argentina"
+  // Queremos solo: "Gales 2233, Puerto Madryn"
+  
+  const partes = direccionCompleta.split(",").map(p => p.trim())
+  
+  // Primera parte: calle y número (la dejamos tal cual)
+  const calle = partes[0] || ""
+  
+  // Buscar "Puerto Madryn" en alguna parte
+  const ciudad = partes.find(p => 
+    p.toLowerCase().includes("puerto madryn") || 
+    p.toLowerCase().includes("madryn")
+  ) || "Puerto Madryn"
+  
+  // Limpiar el código postal (U9120, H9120, etc.)
+  const ciudadLimpia = ciudad.replace(/U?\d{4}\s*/i, "").trim()
+  
+  return `${calle}, ${ciudadLimpia}`
+}
   async function handlePlaceOrder() {
     if (!address || !phone) {
       alert("Por favor, completá tu dirección y teléfono.")
@@ -226,70 +251,50 @@ export function CheckoutScreen() {
     }
 
     setTimeout(async () => {
-      const itemsList = items.map((i) => `• ${i.quantity}x ${i.name}`).join("\n")
-      const now = new Date().toLocaleString("es-AR")
-      const orderId = `QMH-${Math.floor(Math.random() * 9000) + 1000}`
-      
-      // Links de confirmación (acortados)
-      const linkTransferencia = await acortarLink(
-        `https://wa.me/${config.telefono_quemehuencho}?text=${encodeURIComponent(
-          `Hola! Voy a pagar por TRANSFERENCIA el pedido ${orderId} por ${formatPrice(total)}. En breve envío el comprobante 📸`
-        )}`
-      )
-      
-      const linkEfectivo = await acortarLink(
-        `https://wa.me/${config.telefono_quemehuencho}?text=${encodeURIComponent(
-          `Hola! Voy a pagar en EFECTIVO el pedido ${orderId} por ${formatPrice(total)} 💵`
-        )}`
-      )
+  const itemsList = items.map((i) => `• ${i.quantity}x ${i.name}`).join("\n")
+  const now = new Date().toLocaleString("es-AR", { 
+    day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" 
+  })
+  const orderId = `QMH-${Math.floor(Math.random() * 9000) + 1000}`
+  const direccionLimpia = limpiarDireccion(foundAddress) || address
+  
+  // Links de confirmación (cortos y directos)
+  const linkTransferencia = await acortarLink(
+    `https://wa.me/${config.telefono_quemehuencho}?text=${encodeURIComponent(
+      `Transferencia pedido ${orderId} - ${formatPrice(total)}`
+    )}`
+  )
+  
+  const linkEfectivo = await acortarLink(
+    `https://wa.me/${config.telefono_quemehuencho}?text=${encodeURIComponent(
+      `Efectivo pedido ${orderId} - ${formatPrice(total)}`
+    )}`
+  )
 
-      const mensaje = `🚀 *NUEVO PEDIDO* 🚀
-
-🆔 *ID:* ${orderId}
+  const mensaje = `🚀 *PEDIDO ${orderId}*
 🕒 ${now}
 
-📦 *DETALLES DEL ENVÍO*
-━━━━━━━━━━━━━━━━
-🏪 *PUNTO DE RETIRO*
-📍 ${config.direccion_local}
-
-🏠 *PUNTO DE ENTREGA*
-📍 ${address}
+📍 *Entrega:* ${direccionLimpia}
 📱 ${phone}
-📏 Distancia: ${distanceKm.toFixed(1)} km
-${foundAddress ? `📍 Verificado: ${foundAddress}` : ''}
+📏 ${distanceKm.toFixed(1)} km
 
-📦 *Pedido:*
-${itemsList}
-Subtotal: ${formatPrice(subtotal)}
+📦 ${itemsList}
 
-🏍️ Envío: *${formatPrice(deliveryFee)}*
+💵 Subtotal: ${formatPrice(subtotal)}
+🏍️ Envío: ${formatPrice(deliveryFee)}
 💰 *TOTAL: ${formatPrice(total)}*
-📝 Notas: ${notes || "Ninguna"}
+${notes ? `\n📝 ${notes}` : ""}
 
-━━━━━━━━━━━━━━━━
-💳 *FORMAS DE PAGO*
-━━━━━━━━━━━━━━━━
-💵 *EFECTIVO:* Pagás al recibir
-🏦 *TRANSFERENCIA:*
-   Alias: *${config.alias_mercadopago}*
-   Titular: ${config.nombre_titular_alias}
-   
-━━━━━━━━━━━━━━━━
-👉 *CONFIRMÁ TU MÉTODO DE PAGO:*
-━━━━━━━━━━━━━━━━
-💵 Pagar en efectivo:
-${linkEfectivo}
+💳 *PAGO:*
+🏦 Alias: *${config.alias_mercadopago}*
+(${config.nombre_titular_alias})
 
-🏦 Pagar por transferencia:
-${linkTransferencia}
-_(Luego enviá el comprobante por este chat)_
+💵 [Efectivo](${linkEfectivo})
+🏦 [Transferencia](${linkTransferencia})`
 
-⚠️ _El local confirmará la recepción del pedido a la brevedad._`
-
-      const url = `https://wa.me/${config.telefono_quemehuencho}?text=${encodeURIComponent(mensaje)}`
-      window.open(url, "_blank", "noopener,noreferrer")
-    }, 500)
+  const url = `https://wa.me/${config.telefono_quemehuencho}?text=${encodeURIComponent(mensaje)}`
+  window.open(url, "_blank", "noopener,noreferrer")
+}, 500)
   }
 
   return (
