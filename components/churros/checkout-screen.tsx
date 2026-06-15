@@ -1,10 +1,9 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ArrowLeft, LocateFixed, MapPin, Copy, Check } from "lucide-react"
+import { ArrowLeft, LocateFixed, MapPin, Copy, Check, Navigation } from "lucide-react"
 import { formatPrice, calcularPrecioEnvio, fetchConfig, DEFAULT_CONFIG } from "@/lib/menu-data"
 import { useStore } from "./store"
-import { cn } from "@/lib/utils"
 
 const WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbyzaKEUKzMuCSNiuzcvBFCtebPXgrpqyugjZTzTgpp_ZCuG5hWrd79FZOoK5ODccyvVhQ/exec";
 
@@ -33,10 +32,21 @@ export function CheckoutScreen() {
   const [config, setConfig] = useState(DEFAULT_CONFIG)
   const [copiedAlias, setCopiedAlias] = useState(false)
   const [foundAddress, setFoundAddress] = useState("")
+  const [addressModified, setAddressModified] = useState(false)
 
   useEffect(() => {
     fetchConfig().then(setConfig)
   }, [])
+
+  // Si el usuario modifica la dirección, resetear distancia y costo
+  useEffect(() => {
+    if (addressModified && deliveryFee > 0) {
+      setDeliveryFee(0)
+      setDistanceKm(0)
+      setFoundAddress("")
+      setError("⚠️ Modificaste la dirección. Por favor, volvé a calcular el envío.")
+    }
+  }, [address])
 
   const total = subtotal + deliveryFee
 
@@ -62,6 +72,27 @@ export function CheckoutScreen() {
     }
   }
 
+  async function calcularDistanciaDesdeGPS(lat: number, lng: number) {
+    try {
+      const response = await fetch(`/api/distance?lat=${lat}&lng=${lng}`)
+      
+      if (!response.ok) {
+        const errorData = await response.json()
+        setError(`❌ ${errorData.error || "No se pudo calcular"}`)
+        return null
+      }
+
+      const data = await response.json()
+      setFoundAddress(data.direccionEncontrada || "")
+      setAddress(data.direccionEncontrada || "")
+      return data.distancia
+    } catch (error) {
+      console.error("Error calculando distancia desde GPS:", error)
+      setError("Error de conexión. Intentá de nuevo.")
+      return null
+    }
+  }
+
   async function handleCalcularEnvio() {
     setIsCalculating(true)
     setError("")
@@ -82,6 +113,7 @@ export function CheckoutScreen() {
       }
 
       setDistanceKm(distancia)
+      setAddressModified(false) // Resetear flag
       
       const fee = calcularPrecioEnvio(distancia)
       if (fee) {
@@ -96,10 +128,67 @@ export function CheckoutScreen() {
     setIsCalculating(false)
   }
 
+  async function handleUsarMiUbicacion() {
+    setIsCalculating(true)
+    setError("")
+    setFoundAddress("")
+
+    if (!navigator.geolocation) {
+      setError("Tu navegador no soporta geolocalización.")
+      setIsCalculating(false)
+      return
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const lat = position.coords.latitude
+        const lng = position.coords.longitude
+        
+        try {
+          const distancia = await calcularDistanciaDesdeGPS(lat, lng)
+          
+          if (distancia === null) {
+            setIsCalculating(false)
+            return
+          }
+
+          setDistanceKm(distancia)
+          setAddressModified(false)
+          
+          const fee = calcularPrecioEnvio(distancia)
+          if (fee) {
+            setDeliveryFee(fee)
+          } else {
+            setError(`Estás a ${distancia.toFixed(1)} km, fuera de nuestra zona de delivery.`)
+          }
+        } catch (err) {
+          setError("Error al calcular la distancia. Intentá de nuevo.")
+        }
+        
+        setIsCalculating(false)
+      },
+      (error) => {
+        console.error("Error obteniendo ubicación:", error)
+        setError("No pudimos obtener tu ubicación. Asegurate de dar permisos de ubicación.")
+        setIsCalculating(false)
+      }
+    )
+  }
+
   function copiarAlias() {
     navigator.clipboard.writeText(config.alias_mercadopago)
     setCopiedAlias(true)
     setTimeout(() => setCopiedAlias(false), 2000)
+  }
+
+  async function acortarLink(url: string): Promise<string> {
+    try {
+      const response = await fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(url)}`)
+      const shortUrl = await response.text()
+      return shortUrl.startsWith("http") ? shortUrl : url
+    } catch {
+      return url
+    }
   }
 
   async function handlePlaceOrder() {
@@ -141,10 +230,18 @@ export function CheckoutScreen() {
       const now = new Date().toLocaleString("es-AR")
       const orderId = `QMH-${Math.floor(Math.random() * 9000) + 1000}`
       
-      // Link para que el cliente avise cuando pagó por transferencia
-      const linkConfirmarPago = `https://wa.me/${config.telefono_quemehuencho}?text=${encodeURIComponent(
-        `Hola! Ya transferí el pago del pedido ${orderId} por $${total.toFixed(0)} 🙌`
-      )}`
+      // Links de confirmación (acortados)
+      const linkTransferencia = await acortarLink(
+        `https://wa.me/${config.telefono_quemehuencho}?text=${encodeURIComponent(
+          `Hola! Voy a pagar por TRANSFERENCIA el pedido ${orderId} por ${formatPrice(total)}. En breve envío el comprobante 📸`
+        )}`
+      )
+      
+      const linkEfectivo = await acortarLink(
+        `https://wa.me/${config.telefono_quemehuencho}?text=${encodeURIComponent(
+          `Hola! Voy a pagar en EFECTIVO el pedido ${orderId} por ${formatPrice(total)} 💵`
+        )}`
+      )
 
       const mensaje = `🚀 *NUEVO PEDIDO* 🚀
 
@@ -178,8 +275,15 @@ Subtotal: ${formatPrice(subtotal)}
    Alias: *${config.alias_mercadopago}*
    Titular: ${config.nombre_titular_alias}
    
-👉 Si transferís, avisame tocando acá:
-${linkConfirmarPago}
+━━━━━━━━━━━━━━━━
+👉 *CONFIRMÁ TU MÉTODO DE PAGO:*
+━━━━━━━━━━━━━━━━
+💵 Pagar en efectivo:
+${linkEfectivo}
+
+🏦 Pagar por transferencia:
+${linkTransferencia}
+_(Luego enviá el comprobante por este chat)_
 
 ⚠️ _El local confirmará la recepción del pedido a la brevedad._`
 
@@ -202,14 +306,17 @@ ${linkConfirmarPago}
         <section>
           <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-muted-foreground">Dirección de entrega</h2>
           <div className="space-y-3 rounded-3xl bg-card p-4 shadow-sm ring-1 ring-border">
-            {address && (
+            {address && !addressModified && (
               <p className="text-xs font-semibold text-add">
                 💾 Recordamos tu dirección anterior.
               </p>
             )}
             <input
               value={address}
-              onChange={(e) => setAddress(e.target.value)}
+              onChange={(e) => {
+                setAddress(e.target.value)
+                setAddressModified(true)
+              }}
               placeholder="Calle y número (ej: Gales 2233)"
               className="h-12 w-full rounded-2xl bg-secondary px-4 text-sm font-medium text-foreground outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-ring"
             />
@@ -219,14 +326,27 @@ ${linkConfirmarPago}
               placeholder="Tu WhatsApp (ej: 2804123456)"
               className="h-12 w-full rounded-2xl bg-secondary px-4 text-sm font-medium text-foreground outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-ring"
             />
-            <button
-              onClick={handleCalcularEnvio}
-              disabled={isCalculating}
-              className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-primary/30 bg-primary/5 text-sm font-bold text-primary disabled:opacity-50"
-            >
-              <LocateFixed className="size-4" />
-              {isCalculating ? "Calculando ruta..." : "Calcular costo de envío"}
-            </button>
+            
+            {/* Botones de cálculo */}
+            <div className="space-y-2">
+              <button
+                onClick={handleCalcularEnvio}
+                disabled={isCalculating}
+                className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-primary/30 bg-primary/5 text-sm font-bold text-primary disabled:opacity-50"
+              >
+                <LocateFixed className="size-4" />
+                {isCalculating ? "Calculando ruta..." : "Calcular desde dirección"}
+              </button>
+              
+              <button
+                onClick={handleUsarMiUbicacion}
+                disabled={isCalculating}
+                className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-add/30 bg-add/5 text-sm font-bold text-add disabled:opacity-50"
+              >
+                <Navigation className="size-4" />
+                {isCalculating ? "Obteniendo ubicación..." : "Usar mi ubicación actual (GPS)"}
+              </button>
+            </div>
             
             {foundAddress && !error && (
               <div className="flex items-start gap-2 rounded-2xl bg-add/10 p-3 text-xs">

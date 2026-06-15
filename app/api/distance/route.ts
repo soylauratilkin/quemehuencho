@@ -5,14 +5,21 @@ const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzaKEUKzMuCSNi
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const destino = searchParams.get("destino");
+  const lat = searchParams.get("lat");
+  const lng = searchParams.get("lng");
 
-  if (!destino) {
-    return NextResponse.json({ error: "Falta el parámetro destino" }, { status: 400 });
+  if (!destino && (!lat || !lng)) {
+    return NextResponse.json({ error: "Falta dirección o coordenadas" }, { status: 400 });
   }
 
   try {
-    // Llamar al Apps Script que usa el Google Maps real
-    const url = `${APPS_SCRIPT_URL}?destino=${encodeURIComponent(destino)}`;
+    let url = APPS_SCRIPT_URL;
+    
+    if (lat && lng) {
+      url += `?lat=${lat}&lng=${lng}`;
+    } else {
+      url += `?destino=${encodeURIComponent(destino || "")}`;
+    }
     
     const response = await fetch(url);
     const data = await response.json();
