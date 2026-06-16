@@ -249,51 +249,79 @@ ${notes ? `📝 ${notes}` : ""}
     return mensaje
   }
 
-  async function handlePlaceOrder() {
-    if (!phone) {
-      alert("Por favor, completá tu teléfono.")
-      return
-    }
-    if (!pickupInStore && (!address || deliveryFee === 0)) {
-      alert("Por favor, completá tu dirección y calculá el costo de envío.")
-      return
-    }
+async function handlePlaceOrder() {
+  console.log("🔍 Iniciando handlePlaceOrder...")
+  console.log("📱 Phone:", phone)
+  console.log("🏠 Address:", address)
+  console.log("🚗 Pickup:", pickupInStore)
+  console.log("💰 Delivery Fee:", deliveryFee)
+  
+  if (!phone) {
+    alert("Por favor, completá tu teléfono.")
+    return
+  }
+  if (!pickupInStore && (!address || deliveryFee === 0)) {
+    alert("Por favor, completá tu dirección y calculá el costo de envío.")
+    return
+  }
 
-    localStorage.setItem("qh_address", pickupInStore ? "" : address)
-    localStorage.setItem("qh_phone", phone)
-    localStorage.setItem("qh_last_order", new Date().toISOString())
+  console.log("✅ Validaciones pasadas")
 
-    const details = { 
-      address: pickupInStore ? "Retiro en local" : address, 
-      phone, 
-      distanceKm: pickupInStore ? 0 : distanceKm, 
-      deliveryFee: pickupInStore ? 0 : deliveryFee, 
-      paymentMethod: "A definir", 
-      notes: pickupInStore ? `${notes} (RETIRA EN LOCAL)` : notes 
-    }
-    setOrderDetails(details)
-    placeOrder(details)
-    
-    if (WEBHOOK_URL) {
-      fetch(WEBHOOK_URL, {
-        method: "POST",
-        mode: "no-cors",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: details.address,
-          phone: phone,
-          address: details.address,
-          total: formatPrice(total),
-          items: items
-        })
-      }).catch(err => console.error("Error guardando en Sheets:", err))
-    }
+  localStorage.setItem("qh_address", pickupInStore ? "" : address)
+  localStorage.setItem("qh_phone", phone)
+  localStorage.setItem("qh_last_order", new Date().toISOString())
 
-    // Generar mensaje ANTES de mostrar el modal
+  const details = { 
+    address: pickupInStore ? "Retiro en local" : address, 
+    phone, 
+    distanceKm: pickupInStore ? 0 : distanceKm, 
+    deliveryFee: pickupInStore ? 0 : deliveryFee, 
+    paymentMethod: "A definir", 
+    notes: pickupInStore ? `${notes} (RETIRA EN LOCAL)` : notes 
+  }
+  setOrderDetails(details)
+  placeOrder(details)
+  
+  console.log("✅ Pedido guardado en store")
+  
+  // Webhook SIN BLOQUEO (fire and forget)
+  if (WEBHOOK_URL) {
+    console.log("📡 Enviando a webhook...")
+    fetch(WEBHOOK_URL, {
+      method: "POST",
+      mode: "no-cors",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: `QMH-${Math.floor(Math.random() * 9000) + 1000}`,
+        phone: phone,
+        address: details.address,
+        total: total,  // Número crudo
+        items: items
+      })
+    }).then(() => {
+      console.log("✅ Webhook enviado")
+    }).catch(err => {
+      console.error("❌ Error webhook:", err)
+    })
+  }
+
+  console.log("🔄 Generando mensaje WhatsApp...")
+  
+  // Generar mensaje ANTES de mostrar el modal
+  try {
     const mensaje = await generarMensajeWhatsApp()
+    console.log("✅ Mensaje generado:", mensaje.substring(0, 100) + "...")
     setWhatsappMessage(mensaje)
     setShowModal(true)
+    console.log("✅ Modal mostrado")
+  } catch (error) {
+    console.error("❌ Error generando mensaje:", error)
+    // Fallback: abrir WhatsApp directo sin modal
+    const fallbackMsg = `Pedido ${items.length} productos - Total: ${formatPrice(total)}`
+    const url = `https://wa.me/${config.telefono_quemehuencho}?text=${encodeURIComponent(fallbackMsg)}`
+    window.open(url, "_blank", "noopener,noreferrer")
   }
+}
 
   function handleConfirmarWhatsApp() {
     const url = `https://wa.me/${config.telefono_quemehuencho}?text=${encodeURIComponent(whatsappMessage)}`
