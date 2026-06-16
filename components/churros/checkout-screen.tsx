@@ -36,6 +36,11 @@ export function CheckoutScreen() {
   const [pickupInStore, setPickupInStore] = useState(false)
   const [isSending, setIsSending] = useState(false)
 
+  // Estados para la pantalla de éxito
+  const [orderConfirmed, setOrderConfirmed] = useState(false)
+  const [lastWhatsappUrl, setLastWhatsappUrl] = useState("")
+  const [orderSummary, setOrderSummary] = useState({ id: "", time: "", total: 0 })
+
   useEffect(() => {
     fetchConfig().then(setConfig)
   }, [])
@@ -99,21 +104,16 @@ export function CheckoutScreen() {
     setTimeout(() => setCopiedAlias(false), 2000)
   }
 
-  // Acortador con timeout de 3 segundos para que nunca bloquee la app
   async function acortarLink(url: string): Promise<string> {
     try {
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 3000)
-      
-      const response = await fetch(`/api/shorten?url=${encodeURIComponent(url)}`, { 
-        signal: controller.signal 
-      })
+      const response = await fetch(`/api/shorten?url=${encodeURIComponent(url)}`, { signal: controller.signal })
       clearTimeout(timeoutId)
-      
       const data = await response.json()
       return (data.shortUrl && data.shortUrl.length < url.length) ? data.shortUrl : url
     } catch {
-      return url // Si falla, usa la URL original sin romper nada
+      return url
     }
   }
 
@@ -137,12 +137,10 @@ export function CheckoutScreen() {
 
     setIsSending(true)
 
-    // 1. Guardar en localStorage
     localStorage.setItem("qh_address", pickupInStore ? "" : address)
     localStorage.setItem("qh_phone", phone)
     localStorage.setItem("qh_last_order", new Date().toISOString())
 
-    // 2. Guardar en el estado de la app
     const details = { 
       address: pickupInStore ? "Retiro en local" : address, 
       phone, 
@@ -154,7 +152,6 @@ export function CheckoutScreen() {
     setOrderDetails(details)
     placeOrder(details)
     
-    // 3. Enviar a Google Sheets (Fire and forget, no bloquea)
     if (WEBHOOK_URL) {
       const orderId = `QMH-${Math.floor(Math.random() * 9000) + 1000}`
       fetch(WEBHOOK_URL, {
@@ -165,13 +162,12 @@ export function CheckoutScreen() {
           id: orderId,
           phone: phone,
           address: details.address,
-          total: Math.round(total), // <-- NÚMERO ENTERO, SIN FORMATO DE TEXTO
+          total: Math.round(total),
           items: items
         })
       }).catch(err => console.error("Webhook error:", err))
     }
 
-    // 4. Generar mensaje y abrir WhatsApp
     try {
       const itemsList = items.map((i) => `• ${i.quantity}x ${i.name}`).join("\n")
       const now = new Date().toLocaleString("es-AR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }).replace(",", "")
@@ -189,7 +185,11 @@ export function CheckoutScreen() {
         `https://wa.me/${config.telefono_quemehuencho}?text=${encodeURIComponent(`Efectivo pedido ${formatPrice(total)}`)}`
       )
 
+      const orderId = `QMH-${Math.floor(Math.random() * 9000) + 1000}`
       const mensaje = `🚀 *NUEVO PEDIDO*
+
+🆔 *ID:* ${orderId}
+🕒 ${now}
 
 🏪 *Retiro:* ${config.direccion_local}
 ${!pickupInStore ? `🏠 *Entrega:* ${direccionLimpia}\n📱 ${phone} | 📏 ${distanceKm.toFixed(1)} km\n\n🗺️ Ruta: ${mapLink}` : `📱 ${phone}`}
@@ -205,20 +205,83 @@ ${notes ? `📝 ${notes}` : ""}
 🏦 Transferencia: ${linkTransferencia}`
 
       const url = `https://wa.me/${config.telefono_quemehuencho}?text=${encodeURIComponent(mensaje)}`
+      
+      // Guardamos los datos para la pantalla de éxito
+      setOrderSummary({ id: orderId, time: now, total })
+      setLastWhatsappUrl(url)
+      
+      // Abrimos WhatsApp
       window.open(url, "_blank", "noopener,noreferrer")
       
-      // 5. Volver al inicio o pantalla de éxito
-      setScreen("home")
+      // Mostramos la pantalla de éxito en lugar de volver al home
+      setOrderConfirmed(true)
       
     } catch (error) {
       console.error("Error al generar mensaje:", error)
-      alert("Se guardó el pedido, pero hubo un error al abrir WhatsApp. Por favor, contactanos directamente.")
-      setScreen("home")
+      alert("Se guardó el pedido, pero hubo un error al abrir WhatsApp.")
+      setOrderConfirmed(true) // Mostramos la pantalla de éxito igual
     } finally {
       setIsSending(false)
     }
   }
 
+  // ==========================================
+  // PANTALLA DE ÉXITO (Se muestra si orderConfirmed es true)
+  // ==========================================
+  if (orderConfirmed) {
+    return (
+      <div className="flex min-h-dvh flex-col items-center justify-center p-6 text-center">
+        <div className="mb-6 flex size-20 items-center justify-center rounded-full bg-add text-add-foreground animate-in zoom-in duration-300">
+          <Check className="size-10" />
+        </div>
+        <h1 className="mb-2 font-heading text-2xl font-bold text-foreground">¡Pedido Confirmado!</h1>
+        <p className="mb-8 text-muted-foreground">Tu pedido fue registrado exitosamente.</p>
+        
+        <div className="mb-8 w-full max-w-sm rounded-3xl bg-card p-6 shadow-sm ring-1 ring-border text-left">
+          <div className="mb-4 flex items-center justify-between border-b border-border pb-3">
+            <span className="text-sm text-muted-foreground">ID del Pedido</span>
+            <span className="font-mono font-bold text-foreground">{orderSummary.id}</span>
+          </div>
+          <div className="mb-4 flex items-center justify-between border-b border-border pb-3">
+            <span className="text-sm text-muted-foreground">Hora</span>
+            <span className="font-bold text-foreground">{orderSummary.time}</span>
+          </div>
+          <div className="mb-4 flex items-center justify-between border-b border-border pb-3">
+            <span className="text-sm text-muted-foreground">Total</span>
+            <span className="font-extrabold text-add">{formatPrice(orderSummary.total)}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">Estado</span>
+            <span className="rounded-full bg-add/10 px-3 py-1 text-xs font-bold text-add">Enviado a WhatsApp</span>
+          </div>
+        </div>
+
+        <button
+          onClick={() => window.open(lastWhatsappUrl, "_blank", "noopener,noreferrer")}
+          className="mb-4 flex h-14 w-full max-w-sm items-center justify-center gap-2 rounded-full bg-add text-base font-bold text-add-foreground transition-transform active:scale-[0.98]"
+        >
+          <svg viewBox="0 0 24 24" className="size-5 fill-current">
+            <path d="M.057 24l1.687-6.163a11.867 11.867 0 01-1.587-5.945C.16 5.335 5.495 0 12.05 0a11.82 11.82 0 018.413 3.488 11.82 11.82 0 013.48 8.414c-.003 6.557-5.338 11.892-11.893 11.892a11.9 11.9 0 01-5.688-1.448L.057 24zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884a9.86 9.86 0 001.51 5.26l-.999 3.648 3.578-.985zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z" />
+          </svg>
+          Abrir Chat de WhatsApp
+        </button>
+
+        <button
+          onClick={() => {
+            setOrderConfirmed(false)
+            setScreen("home")
+          }}
+          className="flex h-12 w-full max-w-sm items-center justify-center rounded-full bg-secondary text-base font-bold text-secondary-foreground transition-colors hover:bg-secondary/80"
+        >
+          Volver al Inicio
+        </button>
+      </div>
+    )
+  }
+
+  // ==========================================
+  // PANTALLA DE CHECKOUT NORMAL
+  // ==========================================
   return (
     <div className="flex min-h-dvh flex-col pb-44">
       <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-background/95 px-4 py-4 backdrop-blur">
