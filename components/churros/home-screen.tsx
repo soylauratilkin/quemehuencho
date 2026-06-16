@@ -6,7 +6,6 @@ import { ProductCard } from "./product-card"
 import { CategorySelector, type CategoryId } from "./category-selector"
 import { useStore } from "./store"
 import { fetchProductsFromGoogleSheet, products as initialProducts } from "@/lib/menu-data"
-import { MENU_CSV_URL } from "@/lib/menu-data"
 
 export function HomeScreen() {
   const { setScreen } = useStore()
@@ -17,7 +16,9 @@ export function HomeScreen() {
   useEffect(() => {
     async function loadProducts() {
       try {
-        const fetchedProducts = await fetchProductsFromGoogleSheet(MENU_CSV_URL)
+        const fetchedProducts = await fetchProductsFromGoogleSheet(
+          "https://docs.google.com/spreadsheets/d/e/TU_ID_DE_HOJA/pub?output=csv"
+        )
         setProducts(fetchedProducts)
       } catch (error) {
         console.error("Error loading products:", error)
