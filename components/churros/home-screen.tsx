@@ -5,7 +5,7 @@ import { ShoppingBag } from "lucide-react"
 import { ProductCard } from "./product-card"
 import { CategorySelector, type CategoryId } from "./category-selector"
 import { useStore } from "./store"
-import { fetchProductsFromGoogleSheet, products as initialProducts } from "@/lib/menu-data"
+import { fetchProductsFromGoogleSheet, products as initialProducts, MENU_CSV_URL } from "@/lib/menu-data"
 
 export function HomeScreen() {
   const { setScreen } = useStore()
@@ -16,9 +16,8 @@ export function HomeScreen() {
   useEffect(() => {
     async function loadProducts() {
       try {
-        const fetchedProducts = await fetchProductsFromGoogleSheet(
-          "https://docs.google.com/spreadsheets/d/e/TU_ID_DE_HOJA/pub?output=csv"
-        )
+        // Usamos la URL real de tu planilla
+        const fetchedProducts = await fetchProductsFromGoogleSheet(MENU_CSV_URL)
         setProducts(fetchedProducts)
       } catch (error) {
         console.error("Error loading products:", error)
@@ -35,81 +34,78 @@ export function HomeScreen() {
       : products.filter((p) => p.category === selectedCategory)
 
   return (
-    <div className="min-h-dvh pb-32">
-      {/* HEADER CON LOGO */}
-      <header className="sticky top-0 z-20 border-b border-[#333] bg-[#0a0a0a]/95 backdrop-blur">
-        <div className="flex items-center justify-between px-4 py-3">
+    <div className="min-h-dvh pb-32 bg-[#0a0a0a]">
+      
+      {/* 1. HEADER PEQUEÑO Y LIMPIO */}
+      <header className="sticky top-0 z-30 border-b border-[#222] bg-[#0a0a0a]/95 backdrop-blur-md px-4 py-3">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <img 
               src="/images/logo.png" 
               alt="Quemehuencho" 
-              className="h-12 w-12 object-contain rounded-full"
+              className="h-10 w-10 rounded-full object-contain bg-[#111] p-1"
             />
-            <div>
-              <h1 className="font-heading text-xl font-extrabold text-[#ff751f] uppercase tracking-wide">
+            <div className="leading-tight">
+              <h1 className="text-base font-extrabold text-[#ff751f] tracking-wide">
                 Quemehuencho
               </h1>
-              <p className="text-xs text-gray-400 font-medium">Churros de Verdad</p>
+              <p className="text-[10px] text-gray-400 font-medium">
+                Hacemos churros inolvidables
+              </p>
             </div>
           </div>
           
           <button
             onClick={() => setScreen("cart")}
-            className="relative flex size-11 items-center justify-center rounded-full bg-[#ff751f] text-black transition-transform active:scale-95"
+            className="relative flex size-10 items-center justify-center rounded-full bg-[#ff751f] text-black shadow-lg transition-transform active:scale-95"
             aria-label="Ver carrito"
           >
-            <ShoppingBag className="size-5" />
+            <ShoppingBag className="size-5" strokeWidth={2.5} />
           </button>
         </div>
       </header>
 
-      {/* LOGO GRANDE - Reemplaza el hero */}
-      <section className="px-4 py-6">
-        <div className="mx-auto max-w-xs">
-          <div className="relative aspect-square overflow-hidden rounded-3xl bg-gradient-to-br from-[#ff751f] to-[#cc5500] p-8 shadow-2xl">
-            <img
-              src="/images/logo.png"
-              alt="Quemehuencho Logo"
-              className="h-full w-full object-contain drop-shadow-2xl"
-            />
-          </div>
-          <div className="mt-4 text-center">
-            <h2 className="font-heading text-2xl font-extrabold text-white uppercase tracking-wide">
-              Todo de Verdad
-            </h2>
-            <p className="mt-1 text-sm text-gray-400 font-medium">
-              Los mejores churros de Puerto Madryn
-            </p>
-          </div>
-        </div>
+      {/* 2. HERO / SPLASH SCREEN (Logo grande sin fondo naranja) */}
+      <section className="flex flex-col items-center justify-center py-12 px-4 text-center">
+        <img 
+          src="/images/logo.png" 
+          alt="Quemehuencho Logo Grande" 
+          className="w-52 h-52 md:w-64 md:h-64 object-contain drop-shadow-2xl mb-6" 
+        />
+        <h2 className="text-4xl md:text-5xl font-black text-white tracking-tighter uppercase leading-none">
+          Todo de Verdad
+        </h2>
+        <p className="text-sm text-gray-400 font-bold mt-3 tracking-widest uppercase">
+          Puerto Madryn - Argentina
+        </p>
       </section>
 
-      {/* CATEGORÍAS */}
-      <section className="px-4 pb-4">
+      {/* 3. SELECTOR DE CATEGORÍAS */}
+      <section className="px-4 pb-6 sticky top-[68px] z-20 bg-[#0a0a0a]/90 backdrop-blur-sm py-3">
         <CategorySelector
           selectedCategory={selectedCategory}
           onCategoryChange={setSelectedCategory}
         />
       </section>
 
-      {/* PRODUCTOS */}
-      <section className="px-4">
+      {/* 4. LISTA DE PRODUCTOS */}
+      <section className="px-4 space-y-4">
         {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#ff751f] border-t-transparent" />
+          <div className="flex flex-col items-center justify-center py-12 gap-3">
+            <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#ff751f] border-t-transparent" />
+            <p className="text-sm text-gray-500">Cargando el menú...</p>
           </div>
         ) : filteredProducts.length === 0 ? (
-          <p className="py-12 text-center text-muted-foreground">
-            No hay productos en esta categoría
-          </p>
-        ) : (
-          <div className="space-y-4">
-            {filteredProducts.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
+          <div className="py-12 text-center">
+            <p className="text-gray-500">No hay productos en esta categoría</p>
           </div>
+        ) : (
+          filteredProducts.map((product) => (
+            <ProductCard key={product.id} product={product} />
+          ))
         )}
       </section>
+
     </div>
   )
 }
