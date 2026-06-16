@@ -20,12 +20,15 @@ export function ProductCard({ product }: ProductCardProps) {
       {/* Imagen de fondo */}
       {product.image && !imageError ? (
         <>
-          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/70 to-black/20 z-10" />
+          {/* Gradiente overlay - SIEMPRE detrás del contenido */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-transparent z-10" />
+          
+          {/* Imagen */}
           <img
             src={product.image}
             alt={product.name}
             className={cn(
-              "h-full w-full object-cover transition-transform duration-700 group-hover:scale-110",
+              "absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-110",
               !imageLoaded && "opacity-0"
             )}
             onLoad={() => setImageLoaded(true)}
@@ -33,38 +36,36 @@ export function ProductCard({ product }: ProductCardProps) {
           />
         </>
       ) : (
-        // Fondo de respaldo si no hay imagen (Naranja Quemehuencho)
-        <div className="absolute inset-0 bg-gradient-to-br from-[#ff751f] to-[#cc5500] z-0" />
+        /* Fondo de respaldo naranja */
+        <div className="absolute inset-0 bg-gradient-to-br from-[#ff751f] to-[#cc5500]" />
       )}
 
-      {/* Contenido */}
-      <div className="relative z-20 flex h-full flex-col justify-between p-4">
-        {/* Header */}
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <h3 className="font-heading text-xl font-extrabold leading-tight text-white drop-shadow-md uppercase tracking-wide">
-              {product.name}
-            </h3>
-            {product.description && (
-              <p className="mt-1 text-sm text-gray-200 drop-shadow-sm font-medium">
-                {product.description}
-              </p>
-            )}
-          </div>
+      {/* CONTENIDO - SIEMPRE ENCIMA (z-20) */}
+      <div className="relative z-20 flex h-full flex-col justify-between p-5">
+        {/* Nombre del producto */}
+        <div>
+          <h3 className="font-heading text-xl font-extrabold text-white drop-shadow-lg uppercase tracking-wide">
+            {product.name}
+          </h3>
+          {product.description && (
+            <p className="mt-1 text-sm text-gray-100 drop-shadow-md">
+              {product.description}
+            </p>
+          )}
         </div>
 
-        {/* Footer con precio y botón */}
+        {/* Precio y botón */}
         <div className="flex items-end justify-between">
-          <div className="flex flex-col">
+          <div>
             <span className="text-[10px] uppercase tracking-wider text-gray-300 font-bold">Precio</span>
-            <span className="font-heading text-2xl font-extrabold text-[#ff751f] drop-shadow-lg">
+            <div className="font-heading text-2xl font-extrabold text-[#ff751f] drop-shadow-lg">
               {formatPrice(product.price)}
-            </span>
+            </div>
           </div>
           
           <button
             onClick={() => addItem(product)}
-            className="flex size-12 items-center justify-center rounded-full bg-[#ff751f] text-black shadow-xl transition-transform active:scale-90 hover:bg-white"
+            className="flex size-12 items-center justify-center rounded-full bg-[#ff751f] text-black shadow-xl transition-all active:scale-90 hover:bg-white hover:shadow-2xl"
             aria-label={`Agregar ${product.name}`}
           >
             <Plus className="size-7 font-black" strokeWidth={3} />
@@ -72,10 +73,10 @@ export function ProductCard({ product }: ProductCardProps) {
         </div>
       </div>
 
-      {/* Badge de popular */}
+      {/* Badge Popular */}
       {product.popular && (
-        <div className="absolute right-3 top-3 z-30 rounded-full bg-white px-3 py-1 text-xs font-black text-black shadow-lg uppercase">
-           Popular
+        <div className="absolute right-3 top-3 z-30 rounded-full bg-[#ff751f] px-3 py-1 text-xs font-black text-black shadow-lg uppercase">
+          Popular
         </div>
       )}
     </div>
