@@ -121,7 +121,9 @@ export function CheckoutScreen() {
           total: Math.round(total),
           items: items,
           notes: details.notes,
-          type: pickupInStore ? "Retiro" : "Delivery"
+          type: pickupInStore ? "Retiro" : "Delivery",
+          distanceKm: pickupInStore ? 0 : distanceKm,      // <-- AGREGAR
+          deliveryFee: pickupInStore ? 0 : deliveryFee     // <-- AGREGAR
         })
       })
       
