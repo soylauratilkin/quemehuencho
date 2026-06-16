@@ -45,6 +45,17 @@ export function CheckoutScreen() {
     fetchConfig().then(setConfig)
   }, [])
 
+  // TRUCO INFALIBLE: Cuando orderConfirmed se vuelve true, abrimos WhatsApp
+  useEffect(() => {
+    if (orderConfirmed && lastWhatsappUrl) {
+      // Pequeño delay para asegurar que el navegador ya renderizó la pantalla de éxito
+      const timer = setTimeout(() => {
+        window.open(lastWhatsappUrl, "_blank", "noopener,noreferrer")
+      }, 300)
+      return () => clearTimeout(timer)
+    }
+  }, [orderConfirmed, lastWhatsappUrl])
+
   useEffect(() => {
     if (addressModified && deliveryFee > 0 && !pickupInStore) {
       setDeliveryFee(0)
@@ -137,10 +148,12 @@ export function CheckoutScreen() {
 
     setIsSending(true)
 
+    // 1. Guardar en localStorage
     localStorage.setItem("qh_address", pickupInStore ? "" : address)
     localStorage.setItem("qh_phone", phone)
     localStorage.setItem("qh_last_order", new Date().toISOString())
 
+    // 2. Guardar en el estado de la app
     const details = { 
       address: pickupInStore ? "Retiro en local" : address, 
       phone, 
@@ -152,6 +165,7 @@ export function CheckoutScreen() {
     setOrderDetails(details)
     placeOrder(details)
     
+    // 3. Enviar a Google Sheets
     if (WEBHOOK_URL) {
       const orderId = `QMH-${Math.floor(Math.random() * 9000) + 1000}`
       fetch(WEBHOOK_URL, {
@@ -162,12 +176,13 @@ export function CheckoutScreen() {
           id: orderId,
           phone: phone,
           address: details.address,
-          total: Math.round(total),
+          total: Math.round(total), // Número entero
           items: items
         })
       }).catch(err => console.error("Webhook error:", err))
     }
 
+    // 4. Generar mensaje y preparar pantalla de éxito
     try {
       const itemsList = items.map((i) => `• ${i.quantity}x ${i.name}`).join("\n")
       const now = new Date().toLocaleString("es-AR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }).replace(",", "")
@@ -206,27 +221,23 @@ ${notes ? `📝 ${notes}` : ""}
 
       const url = `https://wa.me/${config.telefono_quemehuencho}?text=${encodeURIComponent(mensaje)}`
       
-      // Guardamos los datos para la pantalla de éxito
+      // ACTUALIZAR ESTADO PRIMERO (Esto fuerza a React a mostrar la pantalla de éxito)
       setOrderSummary({ id: orderId, time: now, total })
       setLastWhatsappUrl(url)
-      
-      // Abrimos WhatsApp
-      window.open(url, "_blank", "noopener,noreferrer")
-      
-      // Mostramos la pantalla de éxito en lugar de volver al home
       setOrderConfirmed(true)
       
     } catch (error) {
       console.error("Error al generar mensaje:", error)
-      alert("Se guardó el pedido, pero hubo un error al abrir WhatsApp.")
-      setOrderConfirmed(true) // Mostramos la pantalla de éxito igual
+      // Aunque falle, mostramos la pantalla de éxito
+      setOrderSummary({ id: "Error", time: new Date().toLocaleTimeString(), total })
+      setOrderConfirmed(true)
     } finally {
       setIsSending(false)
     }
   }
 
   // ==========================================
-  // PANTALLA DE ÉXITO (Se muestra si orderConfirmed es true)
+  // PANTALLA DE ÉXITO
   // ==========================================
   if (orderConfirmed) {
     return (
@@ -292,7 +303,6 @@ ${notes ? `📝 ${notes}` : ""}
       </header>
 
       <div className="space-y-6 px-4 pt-5">
-        {/* MODO DE ENTREGA */}
         <section>
           <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-muted-foreground">Modo de entrega</h2>
           <div className="space-y-2">
@@ -318,7 +328,6 @@ ${notes ? `📝 ${notes}` : ""}
           </div>
         </section>
 
-        {/* DIRECCIÓN (solo si es delivery) */}
         {!pickupInStore && (
           <section>
             <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-muted-foreground">Dirección de entrega</h2>
@@ -339,13 +348,11 @@ ${notes ? `📝 ${notes}` : ""}
           </section>
         )}
 
-        {/* TELÉFONO */}
         <section>
           <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-muted-foreground">Tu teléfono</h2>
           <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Tu WhatsApp (ej: 2804123456)" className="h-12 w-full rounded-2xl bg-card px-4 text-sm font-medium text-foreground shadow-sm outline-none ring-1 ring-border placeholder:text-muted-foreground focus:ring-2 focus:ring-ring" />
         </section>
 
-        {/* PAGO */}
         <section>
           <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-muted-foreground">Formas de pago</h2>
           <div className="space-y-2">
@@ -373,7 +380,6 @@ ${notes ? `📝 ${notes}` : ""}
           </div>
         </section>
 
-        {/* NOTAS */}
         <section>
           <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-muted-foreground">Instrucciones</h2>
           <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder="Ej: tocar timbre, sin azúcar" className="w-full resize-none rounded-2xl bg-card p-4 text-sm font-medium text-foreground shadow-sm outline-none ring-1 ring-border placeholder:text-muted-foreground focus:ring-2 focus:ring-ring" />
