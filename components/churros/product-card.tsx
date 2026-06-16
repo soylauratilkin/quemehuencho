@@ -1,67 +1,78 @@
 "use client"
 
 import { useState } from "react"
-import { Check, Plus, Star } from "lucide-react"
-import { formatPrice, type Product } from "@/lib/menu-data"
-import { categoryIcon } from "./category-icons"
+import { Plus } from "lucide-react"
+import { Product, formatPrice } from "@/lib/menu-data"
 import { useStore } from "./store"
+import { cn } from "@/lib/utils"
 
-export function ProductCard({ product }: { product: Product }) {
+interface ProductCardProps {
+  product: Product
+}
+
+export function ProductCard({ product }: ProductCardProps) {
   const { addItem } = useStore()
-  const [added, setAdded] = useState(false)
-  const Icon = categoryIcon[product.category]
-
-  function add() {
-    addItem({
-      productId: product.id,
-      name: product.name,
-      category: product.category,
-      unitPrice: product.price,
-      quantity: 1,
-    })
-    setAdded(true)
-    window.setTimeout(() => setAdded(false), 900)
-  }
+  const [imageLoaded, setImageLoaded] = useState(false)
 
   return (
-    <article className="flex items-center gap-3 rounded-3xl bg-card p-3 shadow-sm ring-1 ring-border">
-      <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-secondary text-primary">
-        <Icon className="size-6" />
-      </div>
+    <div className="group relative h-64 w-full overflow-hidden rounded-3xl bg-card">
+      {/* Imagen de fondo */}
+      {product.image && (
+        <>
+          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent" />
+          <img
+            src={product.image}
+            alt={product.name}
+            className={cn(
+              "h-full w-full object-cover transition-transform duration-500 group-hover:scale-110",
+              !imageLoaded && "opacity-0"
+            )}
+            onLoad={() => setImageLoaded(true)}
+          />
+        </>
+      )}
 
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1.5">
-          <h3 className="truncate font-heading text-base font-semibold leading-snug text-foreground">
-            {product.name}
-          </h3>
-          {product.popular && (
-            <Star
-              className="size-3.5 shrink-0 fill-gold text-gold"
-              aria-label="Popular"
-            />
-          )}
+      {/* Contenido */}
+      <div className="relative z-10 flex h-full flex-col justify-between p-4">
+        {/* Header */}
+        <div className="flex items-start justify-between">
+          <div className="flex-1">
+            <h3 className="font-heading text-lg font-bold leading-tight text-white drop-shadow-lg">
+              {product.name}
+            </h3>
+            {product.description && (
+              <p className="mt-1 text-xs text-gray-200 drop-shadow-md">
+                {product.description}
+              </p>
+            )}
+          </div>
         </div>
-        <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">
-          {product.description}
-        </p>
+
+        {/* Footer con precio y botón */}
+        <div className="flex items-end justify-between">
+          <div className="flex flex-col">
+            <span className="text-xs text-gray-300">Precio</span>
+            <span className="font-heading text-xl font-bold text-[#ff751f] drop-shadow-lg">
+              {formatPrice(product.price)}
+            </span>
+          </div>
+          
+          <button
+            onClick={() => addItem(product)}
+            className="flex size-12 items-center justify-center rounded-full bg-[#ff751f] text-black shadow-lg transition-transform active:scale-95 hover:bg-[#ff751f]/90"
+            aria-label={`Agregar ${product.name}`}
+          >
+            <Plus className="size-6 font-bold" />
+          </button>
+        </div>
       </div>
 
-      <div className="flex shrink-0 flex-col items-end gap-1.5">
-        <span className="text-base font-extrabold tabular-nums text-primary">
-          {formatPrice(product.price)}
-        </span>
-        <button
-          onClick={add}
-          aria-label={`Agregar ${product.name}`}
-          className="flex size-10 items-center justify-center rounded-full bg-add text-add-foreground shadow-md transition-transform active:scale-90"
-        >
-          {added ? (
-            <Check className="size-5" strokeWidth={3} />
-          ) : (
-            <Plus className="size-5" strokeWidth={3} />
-          )}
-        </button>
-      </div>
-    </article>
+      {/* Badge de popular */}
+      {product.popular && (
+        <div className="absolute right-3 top-3 rounded-full bg-[#ff751f] px-3 py-1 text-xs font-bold text-black">
+          ⭐ Popular
+        </div>
+      )}
+    </div>
   )
 }
