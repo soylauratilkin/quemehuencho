@@ -64,13 +64,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [orderDetails, setOrderDetails] = useState<OrderDetails | null>(null)
 
   function addItem(item: Omit<CartItem, "lineId">) {
+    // FORZAR A NÚMERO
+    const unitPrice = Number(item.unitPrice) || 0
+    const quantity = Number(item.quantity) || 1
+    
+    console.log(`addItem: ${item.name} | unitPrice: ${unitPrice} (tipo: ${typeof unitPrice}) | quantity: ${quantity}`)
+    
     setItems((prev) => {
       const signature = item.productId
-      
-      // BLINDAR: Asegurar que unitPrice sea un número válido
-      const unitPrice = Number(item.unitPrice) || 0;
-      const quantity = Number(item.quantity) || 1;
-      
       const existing = prev.find((i) => i.lineId === signature)
       if (existing) {
         return prev.map((i) =>
@@ -100,7 +101,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }
 
   function reorder(order: PastOrder) {
-    // Lógica simplificada de reorder (asume que los productos existen en el menú)
     setScreen("cart")
   }
 
@@ -124,13 +124,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }
 
   const itemCount = useMemo(() => items.reduce((acc, i) => acc + i.quantity, 0), [items])
-
+  
   const subtotal = useMemo(() => {
-    return items.reduce((acc, i) => {
-      const price = Number(i.unitPrice) || 0;
-      const qty = Number(i.quantity) || 0;
-      return acc + (price * qty);
-    }, 0);
+    const total = items.reduce((acc, i) => {
+      const price = Number(i.unitPrice) || 0
+      const qty = Number(i.quantity) || 0
+      return acc + (price * qty)
+    }, 0)
+    
+    console.log(`Store subtotal calculado: ${total} | Items:`, items)
+    
+    return total
   }, [items])
 
   const value: StoreContextValue = {

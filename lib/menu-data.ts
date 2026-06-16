@@ -31,7 +31,7 @@ export const CONFIG_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1v
 
 // Configuración por defecto (fallback)
 export const DEFAULT_CONFIG = {
-  telefono_delivery: "5492804602800",
+  telefono_delivery: "5492804272523",
   telefono_quemehuencho: "5492804007296",
   envio_minimo: 4000,
   horario_apertura_mañana: "09:30",
@@ -40,7 +40,7 @@ export const DEFAULT_CONFIG = {
   horario_cierre_tarde: "20:30",
   esta_online: true,
   direccion_local: "Roque Sáenz Peña 212, Puerto Madryn",
-  alias_mercadopago: "quemehuencho.mp",
+  alias_mercadopago: "queme.huencho",
   nombre_titular_alias: "María Laura Tilkin",
 };
 
@@ -66,8 +66,6 @@ export function calcularPrecioEnvio(distanciaKm: number): number | null {
 }
 
 export const products: Product[] = [
-  { id: "combo-libre", name: "churroLIBRE!", description: "1 chocolate grande + todos los churros que quieras!", price: 12500, category: "combos", popular: true },
-  { id: "promo-todo-choco", name: "promoTODOchoco!", description: "1 chocolate mediano + 1 choco + 1 coco + 1 mani", price: 8500, category: "combos" },
   { id: "mezcladito-tranka", name: "mezcladitoTRANKA!", description: "6 dulce de leche + 2 choco + 2 coco + 2 mani", price: 13600, category: "combos" },
   { id: "doc-ddl", name: "Docena DDL", description: "Docena de dulce de leche", price: 12000, category: "docenas", popular: true },
   { id: "doc-choc", name: "Docena Bañados", description: "Docena de dulce de leche bañado en chocolate", price: 14400, category: "docenas" },
@@ -91,8 +89,14 @@ export async function fetchProductsFromGoogleSheet(csvUrl: string): Promise<Prod
       const values = line.split(",");
       if (values.length < 4) continue;
 
-      // Categoría
+      // Categoría - EXCLUIR "para tomar"
       const categoriaRaw = values[0]?.trim().toLowerCase() || "";
+      
+      // Si es "para tomar", lo saltamos completamente
+      if (categoriaRaw.includes("para tomar")) {
+        continue;
+      }
+      
       let category: CategoryId = "unidad";
       if (categoriaRaw.includes("combo") || categoriaRaw.includes("promo") || categoriaRaw.includes("mezcla")) {
         category = "combos";
@@ -104,16 +108,18 @@ export async function fetchProductsFromGoogleSheet(csvUrl: string): Promise<Prod
       const imageRaw = values[4]?.trim() || "";
       const image = imageRaw.startsWith("http") ? imageRaw : (imageRaw || undefined);
 
-      // Precio - PARSER SIMPLE Y DIRECTO
+      // Precio - FORZAR A NÚMERO
       const precioStr = values[3]?.trim() || "0";
-      const precioLimpio = precioStr.replace(/[^\d]/g, ""); // Solo deja números
+      const precioLimpio = precioStr.replace(/[^\d]/g, "");
       const precio = parseInt(precioLimpio, 10) || 0;
+
+      console.log(`Producto cargado: ${values[1]} | Precio: ${precio} (tipo: ${typeof precio})`);
 
       productsList.push({
         id: `prod-${i}`,
         name: values[1]?.trim() || "Producto",
         description: values[2]?.trim() || "",
-        price: precio,
+        price: precio, // GARANTIZADO que es número
         category,
         image: image,
       });

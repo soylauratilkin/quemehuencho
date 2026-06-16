@@ -5,10 +5,10 @@ import { cn } from "@/lib/utils"
 export type CategoryId = "unidad" | "combos" | "docenas" | "all"
 
 const categories = [
-  { id: "all" as CategoryId, label: "Todos" },
-  { id: "unidad" as CategoryId, label: "Unidad" },
   { id: "combos" as CategoryId, label: "Combos" },
   { id: "docenas" as CategoryId, label: "Docenas" },
+  { id: "unidad" as CategoryId, label: "Unidad" },
+  { id: "all" as CategoryId, label: "Todos" },
 ]
 
 interface CategorySelectorProps {
