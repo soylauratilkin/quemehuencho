@@ -1,156 +1,109 @@
 "use client"
 
-import { useMemo, useState } from "react"
-import Image from "next/image"
-import useSWR from "swr"
-import { Clock, Loader2, MapPin, RotateCcw, Sparkles } from "lucide-react"
-import {
-  categories,
-  fetchProductsFromGoogleSheet,
-  formatPrice,
-  MENU_CSV_URL,
-  products as fallbackProducts,
-  type CategoryId,
-} from "@/lib/menu-data"
-import { categoryIcon } from "./category-icons"
-import { useStore } from "./store"
+import { useEffect, useState } from "react"
+import { ShoppingBag } from "lucide-react"
 import { ProductCard } from "./product-card"
+import { CategorySelector, type CategoryId } from "./category-selector"
+import { useStore } from "./store"
+import { fetchProductsFromGoogleSheet, products as initialProducts } from "@/lib/menu-data"
+import { MENU_CSV_URL } from "@/lib/menu-data"
 
 export function HomeScreen() {
-  const { loyaltyPoints, history, reorder } = useStore()
-  const [activeCat, setActiveCat] = useState<CategoryId>("combos")
+  const { setScreen } = useStore()
+  const [products, setProducts] = useState(initialProducts)
+  const [selectedCategory, setSelectedCategory] = useState<CategoryId | "all">("all")
+  const [isLoading, setIsLoading] = useState(true)
 
-  // Loads the menu from the published Google Sheet CSV when MENU_CSV_URL is set,
-  // otherwise falls back to the hardcoded list. SWR keeps the fallback shown
-  // instantly while any fetch resolves in the background.
-  const { data: products, isLoading } = useSWR(
-    MENU_CSV_URL ? ["menu", MENU_CSV_URL] : null,
-    () => fetchProductsFromGoogleSheet(MENU_CSV_URL),
-    { fallbackData: fallbackProducts, revalidateOnFocus: false },
-  )
+  useEffect(() => {
+    async function loadProducts() {
+      try {
+        const fetchedProducts = await fetchProductsFromGoogleSheet(MENU_CSV_URL)
+        setProducts(fetchedProducts)
+      } catch (error) {
+        console.error("Error loading products:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    loadProducts()
+  }, [])
 
-  const menu = products ?? fallbackProducts
-  const lastOrder = history[0]
-
-  const visible = useMemo(
-    () => menu.filter((p) => p.category === activeCat),
-    [menu, activeCat],
-  )
+  const filteredProducts =
+    selectedCategory === "all"
+      ? products
+      : products.filter((p) => p.category === selectedCategory)
 
   return (
-    <div className="pb-40">
-      {/* Header */}
-      <header className="flex items-center justify-between px-5 pt-5">
-        <div className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
-          <MapPin className="size-4 text-primary" />
-          Puerto Madryn · Centro
-        </div>
-        <div className="flex items-center gap-1.5 rounded-full bg-gold/20 px-3 py-1.5 text-sm font-bold text-primary">
-          <Sparkles className="size-4 text-gold" />
-          {loyaltyPoints} pts
+    <div className="min-h-dvh pb-32">
+      {/* HEADER CON LOGO */}
+      <header className="sticky top-0 z-20 border-b border-[#333] bg-[#0a0a0a]/95 backdrop-blur">
+        <div className="flex items-center justify-between px-4 py-3">
+          <div className="flex items-center gap-3">
+            <img 
+              src="/images/logo.png" 
+              alt="Quemehuencho" 
+              className="h-12 w-12 object-contain rounded-full"
+            />
+            <div>
+              <h1 className="font-heading text-xl font-extrabold text-[#ff751f] uppercase tracking-wide">
+                Quemehuencho
+              </h1>
+              <p className="text-xs text-gray-400 font-medium">Churros de Verdad</p>
+            </div>
+          </div>
+          
+          <button
+            onClick={() => setScreen("cart")}
+            className="relative flex size-11 items-center justify-center rounded-full bg-[#ff751f] text-black transition-transform active:scale-95"
+            aria-label="Ver carrito"
+          >
+            <ShoppingBag className="size-5" />
+          </button>
         </div>
       </header>
 
-      <div className="px-5 pt-3">
-        <h1 className="font-heading text-3xl font-semibold leading-tight text-foreground">
-          Quemehuencho
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Churros artesanales recién hechos
-        </p>
-      </div>
-
-      {/* Hero */}
-      <section className="px-5 pt-4">
-        <div className="relative h-44 w-full overflow-hidden rounded-4xl shadow-md">
-          <Image
-            src="/images/hero-churros.png"
-            alt="Churros con dulce de leche recién hechos"
-            fill
-            priority
-            sizes="(max-width: 768px) 100vw, 28rem"
-            className="object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-primary/85 via-primary/25 to-transparent" />
-          <div className="absolute bottom-0 left-0 p-5 text-primary-foreground">
-            <span className="inline-flex items-center gap-1 rounded-full bg-add px-3 py-1 text-xs font-bold text-add-foreground">
-              <Clock className="size-3" />
-              Listo en 25 min
-            </span>
-            <h2 className="mt-2 text-pretty font-heading text-2xl font-semibold leading-tight">
-              churroLIBRE!
+      {/* LOGO GRANDE - Reemplaza el hero */}
+      <section className="px-4 py-6">
+        <div className="mx-auto max-w-xs">
+          <div className="relative aspect-square overflow-hidden rounded-3xl bg-gradient-to-br from-[#ff751f] to-[#cc5500] p-8 shadow-2xl">
+            <img
+              src="/images/logo.png"
+              alt="Quemehuencho Logo"
+              className="h-full w-full object-contain drop-shadow-2xl"
+            />
+          </div>
+          <div className="mt-4 text-center">
+            <h2 className="font-heading text-2xl font-extrabold text-white uppercase tracking-wide">
+              Todo de Verdad
             </h2>
-            <p className="text-sm font-medium opacity-90">
-              Todos los churros que quieras + chocolate.
+            <p className="mt-1 text-sm text-gray-400 font-medium">
+              Los mejores churros de Puerto Madryn
             </p>
           </div>
         </div>
       </section>
 
-      {/* Reorder */}
-      {lastOrder && (
-        <section className="px-5 pt-5">
-          <button
-            onClick={() => reorder(lastOrder)}
-            className="flex w-full items-center justify-between rounded-3xl border border-dashed border-primary/40 bg-card px-4 py-3 text-left transition-colors active:bg-secondary"
-          >
-            <span className="flex items-center gap-3">
-              <span className="flex size-11 items-center justify-center rounded-full bg-primary/10 text-primary">
-                <RotateCcw className="size-5" />
-              </span>
-              <span>
-                <span className="block text-sm font-bold text-foreground">
-                  Volver a pedir
-                </span>
-                <span className="block text-xs text-muted-foreground">
-                  {lastOrder.items
-                    .map((i) => `${i.quantity}× ${i.name}`)
-                    .join(", ")}
-                </span>
-              </span>
-            </span>
-            <span className="shrink-0 rounded-full bg-add px-3 py-2 text-sm font-bold text-add-foreground">
-              {formatPrice(lastOrder.total)}
-            </span>
-          </button>
-        </section>
-      )}
+      {/* CATEGORÍAS */}
+      <section className="px-4 pb-4">
+        <CategorySelector
+          selectedCategory={selectedCategory}
+          onCategoryChange={setSelectedCategory}
+        />
+      </section>
 
-      {/* Sticky category tabs */}
-      <div className="sticky top-0 z-10 mt-6 border-b border-border bg-background/95 backdrop-blur">
-        <div className="no-scrollbar flex gap-2 overflow-x-auto px-5 py-3">
-          {categories.map((cat) => {
-            const Icon = categoryIcon[cat.id]
-            const isActive = cat.id === activeCat
-            return (
-              <button
-                key={cat.id}
-                onClick={() => setActiveCat(cat.id)}
-                aria-pressed={isActive}
-                className={`flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold transition-colors ${
-                  isActive
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-secondary text-secondary-foreground"
-                }`}
-              >
-                <Icon className="size-4" />
-                {cat.label}
-              </button>
-            )
-          })}
-        </div>
-      </div>
-
-      {/* Product list */}
-      <section className="px-5 pt-5">
+      {/* PRODUCTOS */}
+      <section className="px-4">
         {isLoading ? (
-          <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
-            <Loader2 className="size-5 animate-spin" />
-            Cargando menú…
+          <div className="flex items-center justify-center py-12">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#ff751f] border-t-transparent" />
           </div>
+        ) : filteredProducts.length === 0 ? (
+          <p className="py-12 text-center text-muted-foreground">
+            No hay productos en esta categoría
+          </p>
         ) : (
-          <div className="space-y-3">
-            {visible.map((product) => (
+          <div className="space-y-4">
+            {filteredProducts.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}
           </div>
