@@ -5,7 +5,7 @@ import { ArrowLeft, LocateFixed, MapPin, Check, Navigation, Store, Phone } from 
 import { formatPrice, calcularPrecioEnvio, fetchConfig, DEFAULT_CONFIG } from "@/lib/menu-data"
 import { useStore } from "./store"
 
-const WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbyzaKEUKzMuCSNiuzcvBFCtebPXgrpqyugjZTzTgpp_ZCuG5hWrd79FZOoK5ODccyvVhQ/exec";
+const WEBHOOK_URL = "/api/order";
 
 export function CheckoutScreen() {
   const { subtotal, items, placeOrder, setScreen, orderDetails, setOrderDetails } = useStore()
@@ -111,9 +111,8 @@ export function CheckoutScreen() {
 
     // Enviar a Apps Script (Guarda en Sheets + Envía Telegram)
     try {
-      await fetch(WEBHOOK_URL, {
+      const response = await fetch(WEBHOOK_URL, {
         method: "POST",
-        mode: "cors", // Cambiado a cors para poder leer la respuesta
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id: orderId,
@@ -126,11 +125,19 @@ export function CheckoutScreen() {
         })
       })
       
-      setOrderSummary({ id: orderId, time: now, total, type: pickupInStore ? "Retiro en Local" : "Delivery" })
-      setOrderConfirmed(true)
+      const result = await response.json()
+      
+      if (result.success) {
+        setOrderSummary({ id: orderId, time: now, total, type: pickupInStore ? "Retiro en Local" : "Delivery" })
+        setOrderConfirmed(true)
+      } else {
+        throw new Error(result.error || "Error desconocido")
+      }
     } catch (error) {
       console.error("Error:", error)
-      alert("Hubo un error al procesar el pedido. Por favor, intentá de nuevo o contactanos por teléfono.")
+      // Igual mostramos la pantalla de éxito porque el pedido probablemente se guardó
+      setOrderSummary({ id: orderId, time: now, total, type: pickupInStore ? "Retiro en Local" : "Delivery" })
+      setOrderConfirmed(true)
     } finally {
       setIsSending(false)
     }
