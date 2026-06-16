@@ -91,12 +91,18 @@ export async function fetchProductsFromGoogleSheet(csvUrl: string): Promise<Prod
         if (categoriaRaw.includes("combo") || categoriaRaw.includes("promo") || categoriaRaw.includes("mezcla")) category = "combos";
         else if (categoriaRaw.includes("doc")) category = "docenas";
 
+        // LEER LA IMAGEN (Columna 5, índice 4)
+        const imageRaw = values[4]?.trim() || "";
+        // Si es una URL completa (http) la usamos, si no, asumimos que es local (/images/...)
+        const image = imageRaw.startsWith("http") ? imageRaw : (imageRaw || undefined);
+
         productsList.push({
           id: `prod-${i}`,
           name: values[1]?.trim() || "Producto",
           description: values[2]?.trim() || "",
           price: parseInt(values[3]?.trim() || "0", 10),
           category,
+          image: image, // <--- AGREGADO
         });
       }
     }
