@@ -83,46 +83,42 @@ export async function fetchProductsFromGoogleSheet(csvUrl: string): Promise<Prod
     const lines = text.split("\n").filter((line) => line.trim() !== "");
     
     const productsList: Product[] = [];
+    
     for (let i = 1; i < lines.length; i++) {
-      const values = lines[i].split(",");
-      if (values.length >= 4) {
-        const categoriaRaw = values[0]?.trim().toLowerCase() || "";
-        let category: CategoryId = "unidad";
-        if (categoriaRaw.includes("combo") || categoriaRaw.includes("promo") || categoriaRaw.includes("mezcla")) category = "combos";
-        else if (categoriaRaw.includes("doc")) category = "docenas";
+      const line = lines[i];
+      if (!line.trim()) continue;
+      
+      const values = line.split(",");
+      if (values.length < 4) continue;
 
-        const imageRaw = values[4]?.trim() || "";
-        const image = imageRaw.startsWith("http") ? imageRaw : (imageRaw || undefined);
-
-        console.log(`Fila ${i}:`, {
-          nombre: values[1]?.trim(),
-          precioRaw: values[3]?.trim(),
-          precioParseado: precio
-        });
-
-        // PARSER DE PRECIO ULTRA-SEGURO
-        let precio = 0;
-        try {
-          const precioStr = values[3]?.trim() || "0";
-          // Limpiar: quitar $, puntos de miles, espacios
-          const limpio = precioStr.replace(/[^\d]/g, "");
-          precio = parseInt(limpio, 10);
-          if (isNaN(precio) || precio < 0) precio = 0;
-        } catch (e) {
-          console.error(`Error parseando precio en fila ${i}:`, values[3]);
-          precio = 0;
-        }
-
-        productsList.push({
-          id: `prod-${i}`,
-          name: values[1]?.trim() || "Producto",
-          description: values[2]?.trim() || "",
-          price: precio, // GARANTIZADO que es un número válido
-          category,
-          image: image,
-        });
+      // Categoría
+      const categoriaRaw = values[0]?.trim().toLowerCase() || "";
+      let category: CategoryId = "unidad";
+      if (categoriaRaw.includes("combo") || categoriaRaw.includes("promo") || categoriaRaw.includes("mezcla")) {
+        category = "combos";
+      } else if (categoriaRaw.includes("doc")) {
+        category = "docenas";
       }
+
+      // Imagen
+      const imageRaw = values[4]?.trim() || "";
+      const image = imageRaw.startsWith("http") ? imageRaw : (imageRaw || undefined);
+
+      // Precio - PARSER SIMPLE Y DIRECTO
+      const precioStr = values[3]?.trim() || "0";
+      const precioLimpio = precioStr.replace(/[^\d]/g, ""); // Solo deja números
+      const precio = parseInt(precioLimpio, 10) || 0;
+
+      productsList.push({
+        id: `prod-${i}`,
+        name: values[1]?.trim() || "Producto",
+        description: values[2]?.trim() || "",
+        price: precio,
+        category,
+        image: image,
+      });
     }
+    
     return productsList.filter((p) => ["combos", "docenas", "unidad"].includes(p.category));
   } catch (error) {
     console.error("Error fetching menu:", error);
