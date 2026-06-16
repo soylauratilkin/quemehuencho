@@ -91,18 +91,29 @@ export async function fetchProductsFromGoogleSheet(csvUrl: string): Promise<Prod
         if (categoriaRaw.includes("combo") || categoriaRaw.includes("promo") || categoriaRaw.includes("mezcla")) category = "combos";
         else if (categoriaRaw.includes("doc")) category = "docenas";
 
-        // LEER LA IMAGEN (Columna 5, índice 4)
         const imageRaw = values[4]?.trim() || "";
-        // Si es una URL completa (http) la usamos, si no, asumimos que es local (/images/...)
         const image = imageRaw.startsWith("http") ? imageRaw : (imageRaw || undefined);
+
+        // PARSER DE PRECIO ULTRA-SEGURO
+        let precio = 0;
+        try {
+          const precioStr = values[3]?.trim() || "0";
+          // Limpiar: quitar $, puntos de miles, espacios
+          const limpio = precioStr.replace(/[^\d]/g, "");
+          precio = parseInt(limpio, 10);
+          if (isNaN(precio) || precio < 0) precio = 0;
+        } catch (e) {
+          console.error(`Error parseando precio en fila ${i}:`, values[3]);
+          precio = 0;
+        }
 
         productsList.push({
           id: `prod-${i}`,
           name: values[1]?.trim() || "Producto",
           description: values[2]?.trim() || "",
-          price: parseInt(values[3]?.trim() || "0", 10),
+          price: precio, // GARANTIZADO que es un número válido
           category,
-          image: image, // <--- AGREGADO
+          image: image,
         });
       }
     }

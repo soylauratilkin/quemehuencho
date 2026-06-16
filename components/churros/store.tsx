@@ -66,13 +66,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   function addItem(item: Omit<CartItem, "lineId">) {
     setItems((prev) => {
       const signature = item.productId
+      
+      // BLINDAR: Asegurar que unitPrice sea un número válido
+      const unitPrice = Number(item.unitPrice) || 0;
+      const quantity = Number(item.quantity) || 1;
+      
       const existing = prev.find((i) => i.lineId === signature)
       if (existing) {
         return prev.map((i) =>
-          i.lineId === signature ? { ...i, quantity: i.quantity + item.quantity } : i
+          i.lineId === signature ? { ...i, quantity: i.quantity + quantity } : i
         )
       }
-      return [...prev, { ...item, lineId: signature }]
+      return [...prev, { ...item, unitPrice, quantity, lineId: signature }]
     })
   }
 
@@ -119,7 +124,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }
 
   const itemCount = useMemo(() => items.reduce((acc, i) => acc + i.quantity, 0), [items])
-  const subtotal = useMemo(() => items.reduce((acc, i) => acc + i.unitPrice * i.quantity, 0), [items])
+
+  const subtotal = useMemo(() => {
+    return items.reduce((acc, i) => {
+      const price = Number(i.unitPrice) || 0;
+      const qty = Number(i.quantity) || 0;
+      return acc + (price * qty);
+    }, 0);
+  }, [items])
 
   const value: StoreContextValue = {
     screen, setScreen, items, addItem, increment, decrement, removeItem, clearCart,

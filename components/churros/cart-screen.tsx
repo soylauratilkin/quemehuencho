@@ -6,9 +6,15 @@ import { categoryIcon } from "./category-icons"
 import { useStore } from "./store"
 
 export function CartScreen() {
-  const { items, increment, decrement, removeItem, subtotal, setScreen } = useStore()
+  const { items, increment, decrement, removeItem, setScreen } = useStore()
 
-  // Ya no hay costo fijo de 1500. El envío se calcula en el checkout.
+  // Calcular subtotal aquí directamente (a prueba de NaN)
+  const subtotal = items.reduce((acc, item) => {
+    const price = Number(item.unitPrice) || 0
+    const qty = Number(item.quantity) || 0
+    return acc + (price * qty)
+  }, 0)
+
   const total = subtotal 
 
   return (
@@ -50,6 +56,8 @@ export function CartScreen() {
             <ul className="space-y-3">
               {items.map((item) => {
                 const Icon = categoryIcon[item.category]
+                const itemTotal = (Number(item.unitPrice) || 0) * (Number(item.quantity) || 0)
+                
                 return (
                   <li
                     key={item.lineId}
@@ -72,7 +80,7 @@ export function CartScreen() {
                         </button>
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        {formatPrice(item.unitPrice)} c/u
+                        {formatPrice(Number(item.unitPrice) || 0)} c/u
                       </p>
                       <div className="mt-auto flex items-center justify-between pt-2">
                         <div className="flex items-center gap-2 rounded-full bg-secondary p-1">
@@ -95,7 +103,7 @@ export function CartScreen() {
                           </button>
                         </div>
                         <span className="font-extrabold tabular-nums text-foreground">
-                          {formatPrice(item.unitPrice * item.quantity)}
+                          {formatPrice(itemTotal)}
                         </span>
                       </div>
                     </div>
