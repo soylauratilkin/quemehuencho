@@ -94,6 +94,12 @@ export async function fetchProductsFromGoogleSheet(csvUrl: string): Promise<Prod
         const imageRaw = values[4]?.trim() || "";
         const image = imageRaw.startsWith("http") ? imageRaw : (imageRaw || undefined);
 
+        console.log(`Fila ${i}:`, {
+          nombre: values[1]?.trim(),
+          precioRaw: values[3]?.trim(),
+          precioParseado: precio
+        });
+
         // PARSER DE PRECIO ULTRA-SEGURO
         let precio = 0;
         try {
