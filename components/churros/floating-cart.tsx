@@ -13,18 +13,18 @@ export function FloatingCart() {
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 mx-auto flex max-w-md justify-center px-4 pb-5">
       <button
         onClick={() => setScreen("cart")}
-        className="pointer-events-auto flex h-16 w-full items-center justify-between rounded-full bg-add px-3 pl-5 text-add-foreground shadow-xl transition-transform active:scale-[0.98]"
+        className="pointer-events-auto flex h-16 w-full items-center justify-between rounded-full bg-[#ff751f] px-3 pl-5 text-black shadow-2xl transition-transform active:scale-[0.98]"
       >
         <span className="flex items-center gap-3">
-          <span className="relative flex size-10 items-center justify-center rounded-full bg-add-foreground/15">
-            <ShoppingBag className="size-5" />
-            <span className="absolute -right-1 -top-1 flex size-5 items-center justify-center rounded-full bg-gold text-xs font-bold text-gold-foreground">
+          <span className="relative flex size-10 items-center justify-center rounded-full bg-black">
+            <ShoppingBag className="size-5 text-[#ff751f]" strokeWidth={2.5} />
+            <span className="absolute -right-1 -top-1 flex size-5 items-center justify-center rounded-full bg-[#ff751f] text-xs font-bold text-black border-2 border-black">
               {itemCount}
             </span>
           </span>
           <span className="font-bold">Ver pedido</span>
         </span>
-        <span className="rounded-full bg-add-foreground/15 px-4 py-2 font-extrabold tabular-nums">
+        <span className="rounded-full bg-black px-4 py-2 font-extrabold tabular-nums text-[#ff751f]">
           {formatPrice(subtotal)}
         </span>
       </button>

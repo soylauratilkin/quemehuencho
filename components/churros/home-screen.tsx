@@ -35,7 +35,7 @@ export function HomeScreen() {
   return (
     <div className="min-h-dvh pb-32 bg-[#0a0a0a]">
       
-      {/* HEADER CON SUBTOTAL REAL */}
+      {/* HEADER COMPACTO */}
       <header className="sticky top-0 z-30 border-b border-[#222] bg-[#0a0a0a]/95 backdrop-blur-md px-4 py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -54,28 +54,24 @@ export function HomeScreen() {
             </div>
           </div>
           
-          {/* BOTÓN FLOTANTE DEL CARRITO - ABAJO */}
-          <div className="fixed inset-x-0 bottom-4 z-40 mx-auto max-w-md px-4">
-            <button
-              onClick={() => setScreen("cart")}
-              className="flex h-16 w-full items-center justify-between rounded-full bg-[#ff751f] px-3 pl-5 text-black shadow-xl transition-transform active:scale-[0.98]"
-            >
-              <span className="flex items-center gap-3">
-                <span className="relative flex size-10 items-center justify-center rounded-full bg-black">
-                  <ShoppingBag className="size-5" strokeWidth={2.5} />
-                  {itemCount > 0 && (
-                    <span className="absolute -right-1 -top-1 flex size-5 items-center justify-center rounded-full bg-[#ff751f] text-xs font-bold text-black border-2 border-black">
-                      {itemCount}
-                    </span>
-                  )}
+          {/* BOTÓN DEL CARRITO - COMPACTO */}
+          <button
+            onClick={() => setScreen("cart")}
+            className="flex items-center gap-2 rounded-full bg-[#ff751f] px-3 py-2 text-black shadow-lg transition-transform active:scale-95"
+            aria-label="Ver carrito"
+          >
+            <ShoppingBag className="size-5" strokeWidth={2.5} />
+            {itemCount > 0 && (
+              <>
+                <span className="rounded-full bg-black px-2 py-0.5 text-xs font-extrabold text-[#ff751f] tabular-nums">
+                  {itemCount}
                 </span>
-                <span className="font-bold">Ver pedido</span>
-              </span>
-              <span className="rounded-full bg-black px-4 py-2 font-extrabold tabular-nums text-[#ff751f]">
-                {formatPrice(subtotal)}
-              </span>
-            </button>
-          </div>
+                <span className="font-extrabold tabular-nums text-sm">
+                  {formatPrice(subtotal)}
+                </span>
+              </>
+            )}
+          </button>
         </div>
       </header>
 

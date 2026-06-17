@@ -263,19 +263,20 @@ export function CheckoutScreen() {
         </section>
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-20 mx-auto max-w-md border-t border-border bg-card px-4 py-4">
+      {/* BOTÓN DE CONFIRMACIÓN - FIJO ABAJO */}
+      <div className="fixed inset-x-0 bottom-0 z-50 mx-auto max-w-md border-t-2 border-[#ff751f] bg-[#ff751f] px-4 py-4 shadow-2xl">
         <div className="mb-2 flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">Total a pagar</span>
-          <span className="text-lg font-extrabold tabular-nums text-foreground">{formatPrice(total)}</span>
+          <span className="text-black/80 font-semibold">Total a pagar</span>
+          <span className="text-lg font-extrabold tabular-nums text-black">{formatPrice(total)}</span>
         </div>
         <button
           onClick={handlePlaceOrder}
           disabled={isSending || !isPhoneValid || (pickupInStore ? false : (!deliveryFee || !!error))}
-          className="flex h-14 w-full items-center justify-center rounded-full bg-add text-base font-bold text-add-foreground transition-transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex h-14 w-full items-center justify-center rounded-full bg-black text-base font-bold text-[#ff751f] transition-transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isSending ? (
             <span className="flex items-center gap-2">
-              <span className="size-4 animate-spin rounded-full border-2 border-add-foreground border-t-transparent"></span>
+              <span className="size-4 animate-spin rounded-full border-2 border-[#ff751f] border-t-transparent"></span>
               Procesando...
             </span>
           ) : (
