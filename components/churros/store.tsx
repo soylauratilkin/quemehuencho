@@ -65,21 +65,31 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   function addItem(item: Omit<CartItem, "lineId">) {
     // FORZAR A NÚMERO
-    const price = Number(item.price) || 0
-    const quantity = Number(item.quantity) || 1
-    
-    console.log(`addItem: ${item.name} | price: ${price} (tipo: ${typeof price}) | quantity: ${quantity}`)
+    const price = Number(item.price) || 0;
+    const quantity = Number(item.quantity) || 1;
     
     setItems((prev) => {
-      const signature = item.productId
-      const existing = prev.find((i) => i.lineId === signature)
+      // USAR EL NOMBRE COMO FIRMA ÚNICA EN LUGAR DE productId
+      const signature = item.name.trim().toLowerCase();
+      
+      // BUSCAR POR LA NUEVA FIRMA
+      const existing = prev.find((i) => i.lineId === signature);
+      
       if (existing) {
+        // SI YA EXISTE, SUMAR CANTIDAD
         return prev.map((i) =>
           i.lineId === signature ? { ...i, quantity: i.quantity + quantity } : i
-        )
+        );
       }
-      return [...prev, { ...item, price, quantity, lineId: signature }]
-    })
+      
+      // CREAR NUEVO ITEM CON lineId BASADO EN EL NOMBRE
+      return [...prev, { 
+        ...item, 
+        price, 
+        quantity, 
+        lineId: signature 
+      }];
+    });
   }
 
   function increment(lineId: string) {
