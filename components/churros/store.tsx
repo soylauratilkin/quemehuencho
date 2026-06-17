@@ -10,7 +10,7 @@ export type CartItem = {
   productId: string
   name: string
   category: CategoryId
-  unitPrice: number
+  price: number
   quantity: number
 }
 
@@ -65,10 +65,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   function addItem(item: Omit<CartItem, "lineId">) {
     // FORZAR A NÚMERO
-    const unitPrice = Number(item.unitPrice) || 0
+    const price = Number(item.price) || 0
     const quantity = Number(item.quantity) || 1
     
-    console.log(`addItem: ${item.name} | unitPrice: ${unitPrice} (tipo: ${typeof unitPrice}) | quantity: ${quantity}`)
+    console.log(`addItem: ${item.name} | price: ${price} (tipo: ${typeof price}) | quantity: ${quantity}`)
     
     setItems((prev) => {
       const signature = item.productId
@@ -78,7 +78,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           i.lineId === signature ? { ...i, quantity: i.quantity + quantity } : i
         )
       }
-      return [...prev, { ...item, unitPrice, quantity, lineId: signature }]
+      return [...prev, { ...item, price, quantity, lineId: signature }]
     })
   }
 
@@ -127,7 +127,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   
   const subtotal = useMemo(() => {
     const total = items.reduce((acc, i) => {
-      const price = Number(i.unitPrice) || 0
+      const price = Number(i.price) || 0
       const qty = Number(i.quantity) || 0
       return acc + (price * qty)
     }, 0)
