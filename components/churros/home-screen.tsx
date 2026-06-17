@@ -5,10 +5,10 @@ import { ShoppingBag } from "lucide-react"
 import { ProductCard } from "./product-card"
 import { CategorySelector, type CategoryId } from "./category-selector"
 import { useStore } from "./store"
-import { fetchProductsFromGoogleSheet, products as initialProducts, MENU_CSV_URL } from "@/lib/menu-data"
+import { fetchProductsFromGoogleSheet, products as initialProducts, MENU_CSV_URL, formatPrice } from "@/lib/menu-data"
 
 export function HomeScreen() {
-  const { setScreen } = useStore()
+  const { setScreen, subtotal, itemCount } = useStore() // <-- AGREGAR subtotal e itemCount
   const [products, setProducts] = useState(initialProducts)
   const [selectedCategory, setSelectedCategory] = useState<CategoryId | "all">("all")
   const [isLoading, setIsLoading] = useState(true)
@@ -16,7 +16,6 @@ export function HomeScreen() {
   useEffect(() => {
     async function loadProducts() {
       try {
-        // Usamos la URL real de tu planilla
         const fetchedProducts = await fetchProductsFromGoogleSheet(MENU_CSV_URL)
         setProducts(fetchedProducts)
       } catch (error) {
@@ -36,7 +35,7 @@ export function HomeScreen() {
   return (
     <div className="min-h-dvh pb-32 bg-[#0a0a0a]">
       
-      {/* 1. HEADER PEQUEÑO Y LIMPIO */}
+      {/* HEADER CON SUBTOTAL REAL */}
       <header className="sticky top-0 z-30 border-b border-[#222] bg-[#0a0a0a]/95 backdrop-blur-md px-4 py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -57,38 +56,48 @@ export function HomeScreen() {
           
           <button
             onClick={() => setScreen("cart")}
-            className="relative flex size-10 items-center justify-center rounded-full bg-[#ff751f] text-black shadow-lg transition-transform active:scale-95"
+            className="relative flex items-center gap-2 rounded-full bg-[#ff751f] px-4 py-2 text-black shadow-lg transition-transform active:scale-95"
             aria-label="Ver carrito"
           >
             <ShoppingBag className="size-5" strokeWidth={2.5} />
+            {/* MOSTRAR CANTIDAD DE ITEMS */}
+            {itemCount > 0 && (
+              <span className="rounded-full bg-black px-2 py-0.5 text-xs font-extrabold text-[#ff751f] tabular-nums">
+                {itemCount}
+              </span>
+            )}
+            {/* MOSTRAR SUBTOTAL */}
+            <span className="font-extrabold tabular-nums">
+              {formatPrice(subtotal)}
+            </span>
           </button>
         </div>
       </header>
 
-      {/* 2. HERO / SPLASH SCREEN (Logo grande sin fondo naranja) */}
-      <section className="flex flex-col items-center justify-center py-12 px-4 text-center">
+      {/* HERO */}
+      <section className="flex flex-col items-center justify-center py-8 px-4 text-center">
         <img 
           src="/images/logo.png" 
           alt="Quemehuencho Logo Grande" 
-          className="w-52 h-52 md:w-64 md:h-64 object-contain drop-shadow-2xl mb-6" 
+          className="w-48 h-48 object-contain drop-shadow-2xl mb-4 rounded-full"  
         />
-        <h2 className="text-4xl md:text-5xl font-black text-white tracking-tighter uppercase leading-none">
+        <h2 className="text-3xl md:text-4xl font-black text-white tracking-tighter uppercase leading-none">
           Todo de Verdad
         </h2>
-        <p className="text-sm text-gray-400 font-bold mt-3 tracking-widest uppercase">
+        <p className="text-xs text-gray-400 font-bold mt-2 tracking-widest uppercase">
           Puerto Madryn - Argentina
         </p>
       </section>
 
-      {/* 3. SELECTOR DE CATEGORÍAS */}
-      <section className="px-4 pb-6 sticky top-[68px] z-20 bg-[#0a0a0a]/90 backdrop-blur-sm py-3">
+      {/* CATEGORÍAS */}
+      <section className="px-4 pb-4">
         <CategorySelector
           selectedCategory={selectedCategory}
           onCategoryChange={setSelectedCategory}
         />
       </section>
 
-      {/* 4. LISTA DE PRODUCTOS */}
+      {/* PRODUCTOS */}
       <section className="px-4 space-y-4">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-12 gap-3">
@@ -105,7 +114,6 @@ export function HomeScreen() {
           ))
         )}
       </section>
-
     </div>
   )
 }
