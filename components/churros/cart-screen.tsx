@@ -10,7 +10,7 @@ export function CartScreen() {
 
   // Calcular subtotal directamente con DEBUG
   const subtotal = items.reduce((acc, item) => {
-    const price = Number(item.unitPrice) || 0
+    const price = Number(item.price) || 0
     const qty = Number(item.quantity) || 0
     const itemTotal = price * qty
     
@@ -63,7 +63,7 @@ export function CartScreen() {
             <ul className="space-y-3">
               {items.map((item) => {
                 const Icon = categoryIcon[item.category]
-                const itemTotal = (Number(item.unitPrice) || 0) * (Number(item.quantity) || 0)
+                const itemTotal = (Number(item.price) || 0) * (Number(item.quantity) || 0)
                 
                 return (
                   <li
@@ -87,7 +87,7 @@ export function CartScreen() {
                         </button>
                       </div>
                       <p className="text-xs text-gray-400">
-                        {formatPrice(Number(item.unitPrice) || 0)} c/u
+                        {formatPrice(Number(item.price) || 0)} c/u
                       </p>
                       <div className="mt-auto flex items-center justify-between pt-2">
                         <div className="flex items-center gap-2 rounded-full bg-[#1a1a1a] p-1">
