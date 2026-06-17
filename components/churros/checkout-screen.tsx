@@ -71,7 +71,7 @@ export function CheckoutScreen() {
 
   async function handlePlaceOrder() {
     if (!isPhoneValid) {
-      alert("⚠️ El teléfono debe tener entre 10 y 15 dígitos numéricos (ej: 2804123456).")
+      alert("️ El teléfono debe tener entre 10 y 15 dígitos numéricos (ej: 2804123456).")
       return
     }
     if (!pickupInStore && (!address || deliveryFee === 0)) {
@@ -83,19 +83,10 @@ export function CheckoutScreen() {
     localStorage.setItem("qh_address", pickupInStore ? "" : address)
     localStorage.setItem("qh_phone", phone)
 
-    const details = { 
-      address: pickupInStore ? "Retiro en local" : address, 
-      phone, 
-      distanceKm: pickupInStore ? 0 : distanceKm, 
-      deliveryFee: pickupInStore ? 0 : deliveryFee, 
-      paymentMethod: "A definir",
-      notes: pickupInStore ? `${notes} (RETIRA EN LOCAL)` : notes 
-    }
-    setOrderDetails(details)
-    
-    // Generar ID único basado en timestamp (una sola vez)
+    // 1. Generar ID único basado en timestamp (UNA SOLA VEZ)
     const orderId = `QMH-${Date.now()}`;
 
+    // 2. Declarar details (UNA SOLA VEZ)
     const details = { 
       address: pickupInStore ? "Retiro en local" : address, 
       phone, 
@@ -104,6 +95,7 @@ export function CheckoutScreen() {
       paymentMethod: "A definir",
       notes: pickupInStore ? `${notes} (RETIRA EN LOCAL)` : notes 
     }
+    
     setOrderDetails(details)
 
     try {
@@ -125,14 +117,15 @@ export function CheckoutScreen() {
       
       const result = await response.json()
       
-      // PASAR orderId al store (el store NO debe generar su propio ID)
-      placeOrder(details, orderId)
-      
+      if (!result.success) {
+        throw new Error(result.error || "Error desconocido")
+      }
     } catch (error) {
-      console.error("Error:", error)
-      placeOrder(details, orderId)
+      console.error("Error enviando pedido:", error)
     } finally {
       setIsSending(false)
+      // 3. Pasar orderId al store para que la pantalla de éxito use el mismo ID
+      placeOrder(details, orderId) 
     }
   }
 

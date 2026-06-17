@@ -12,13 +12,14 @@ export type CartItem = {
   category: CategoryId
   price: number
   quantity: number
-  image?: string // <--- AGREGAR ESTO
+  image?: string
 }
 
+// ← CORREGIDO: Agregar price al tipo PastOrder
 type PastOrder = {
   id: string
   date: string
-  items: { name: string; quantity: number }[]
+  items: { name: string; quantity: number; price: number }[]
   productIds: string[]
   total: number
 }
@@ -65,31 +66,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [orderDetails, setOrderDetails] = useState<OrderDetails | null>(null)
 
   function addItem(item: Omit<CartItem, "lineId">) {
-    // FORZAR A NÚMERO
     const price = Number(item.price) || 0;
     const quantity = Number(item.quantity) || 1;
     
     setItems((prev) => {
-      // USAR EL NOMBRE COMO FIRMA ÚNICA EN LUGAR DE productId
       const signature = item.name.trim().toLowerCase();
-      
-      // BUSCAR POR LA NUEVA FIRMA
       const existing = prev.find((i) => i.lineId === signature);
       
       if (existing) {
-        // SI YA EXISTE, SUMAR CANTIDAD
         return prev.map((i) =>
           i.lineId === signature ? { ...i, quantity: i.quantity + quantity } : i
         );
       }
       
-      // CREAR NUEVO ITEM CON lineId BASADO EN EL NOMBRE
       return [...prev, { 
         ...item, 
         price, 
         quantity, 
         lineId: signature,
-        image: item.image // <--- AGREGAR ESTO 
+        image: item.image
       }];
     });
   }
@@ -116,28 +111,38 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setScreen("cart")
   }
 
-function placeOrder(details: OrderDetails, orderId: string) {
-  const total = subtotal + details.deliveryFee
-  setLoyaltyPoints((p) => p + Math.round(total / 100))
-  setLastEta(20 + Math.floor(Math.random() * 16))
-  
-  const newOrder: PastOrder = {
-    id: orderId, // ← USAR el ID que viene del checkout, NO generar uno nuevo
-    date: "Hoy",
-    items: items.map((i) => ({ 
-      name: i.name, 
-      quantity: i.quantity,
-      price: i.price
-    })),
-    productIds: items.flatMap((i) => Array.from({ length: i.quantity }, () => i.productId)),
-    total,
+  function placeOrder(details: OrderDetails, orderId: string) {
+    // ← LOG DE DEBUG
+    console.log("🔍 placeOrder llamado con:", {
+      orderId: orderId,
+      orderIdTipo: typeof orderId,
+      items: items.map(i => ({ name: i.name, price: i.price, quantity: i.quantity }))
+    });
+    
+    const total = subtotal + details.deliveryFee
+    setLoyaltyPoints((p) => p + Math.round(total / 100))
+    setLastEta(20 + Math.floor(Math.random() * 16))
+    
+    const newOrder: PastOrder = {
+      id: orderId,
+      date: "Hoy",
+      items: items.map((i) => ({ 
+        name: i.name, 
+        quantity: i.quantity,
+        price: i.price // ← AHORA SÍ SE GUARDA price
+      })),
+      productIds: items.flatMap((i) => Array.from({ length: i.quantity }, () => i.productId)),
+      total,
+    }
+    
+    // ← LOG DE DEBUG
+    console.log("🔍 newOrder creado:", newOrder);
+    
+    setHistory((prev) => [newOrder, ...prev])
+    setOrderDetails(details)
+    setItems([])
+    setScreen("success")
   }
-  
-  setHistory((prev) => [newOrder, ...prev])
-  setOrderDetails(details)
-  setItems([])
-  setScreen("success")
-}
 
   const itemCount = useMemo(() => items.reduce((acc, i) => acc + i.quantity, 0), [items])
   
@@ -147,8 +152,6 @@ function placeOrder(details: OrderDetails, orderId: string) {
       const qty = Number(i.quantity) || 0
       return acc + (price * qty)
     }, 0)
-    
-    console.log(`Store subtotal calculado: ${total} | Items:`, items)
     
     return total
   }, [items])
