@@ -12,6 +12,7 @@ export type CartItem = {
   category: CategoryId
   price: number
   quantity: number
+  image?: string // <--- AGREGAR ESTO
 }
 
 type PastOrder = {
@@ -87,7 +88,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         ...item, 
         price, 
         quantity, 
-        lineId: signature 
+        lineId: signature,
+        image: item.image // <--- AGREGAR ESTO 
       }];
     });
   }

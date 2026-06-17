@@ -70,8 +70,12 @@ export function CartScreen() {
                     key={item.lineId}
                     className="flex gap-3 rounded-3xl bg-[#111] p-3 shadow-sm ring-1 ring-[#333]"
                   >
-                    <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-[#1a1a1a] text-[#ff751f]">
-                      <Icon className="size-7" />
+                    <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-[#1a1a1a] overflow-hidden">
+                      {item.image ? (
+                        <img src={item.image} alt={item.name} className="h-full w-full object-cover" />
+                      ) : (
+                        <Icon className="size-7 text-[#ff751f]" />
+                      )}
                     </div>
                     <div className="flex flex-1 flex-col">
                       <div className="flex items-start justify-between gap-2">
