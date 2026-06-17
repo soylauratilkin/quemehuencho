@@ -46,7 +46,7 @@ type StoreContextValue = {
   loyaltyPoints: number
   history: PastOrder[]
   reorder: (order: PastOrder) => void
-  placeOrder: (details: OrderDetails) => void
+  placeOrder: (details: OrderDetails, orderId: string) => void
   lastEta: number
   orderDetails: OrderDetails | null
   setOrderDetails: (details: OrderDetails) => void
@@ -116,24 +116,28 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setScreen("cart")
   }
 
-  function placeOrder(details: OrderDetails) {
-    const total = subtotal + details.deliveryFee
-    setLoyaltyPoints((p) => p + Math.round(total / 100))
-    setLastEta(20 + Math.floor(Math.random() * 16))
-    
-    const newOrder: PastOrder = {
-      id: `QMH-${1043 + history.length}`,
-      date: "Hoy",
-      items: items.map((i) => ({ name: i.name, quantity: i.quantity })),
-      productIds: items.flatMap((i) => Array.from({ length: i.quantity }, () => i.productId)),
-      total,
-    }
-    
-    setHistory((prev) => [newOrder, ...prev])
-    setOrderDetails(details)
-    setItems([])
-    setScreen("success")
+function placeOrder(details: OrderDetails, orderId: string) {
+  const total = subtotal + details.deliveryFee
+  setLoyaltyPoints((p) => p + Math.round(total / 100))
+  setLastEta(20 + Math.floor(Math.random() * 16))
+  
+  const newOrder: PastOrder = {
+    id: orderId, // ← USAR el ID que viene del checkout, NO generar uno nuevo
+    date: "Hoy",
+    items: items.map((i) => ({ 
+      name: i.name, 
+      quantity: i.quantity,
+      unitPrice: i.unitPrice
+    })),
+    productIds: items.flatMap((i) => Array.from({ length: i.quantity }, () => i.productId)),
+    total,
   }
+  
+  setHistory((prev) => [newOrder, ...prev])
+  setOrderDetails(details)
+  setItems([])
+  setScreen("success")
+}
 
   const itemCount = useMemo(() => items.reduce((acc, i) => acc + i.quantity, 0), [items])
   

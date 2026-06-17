@@ -93,7 +93,18 @@ export function CheckoutScreen() {
     }
     setOrderDetails(details)
     
-    const orderId = `QMH-${Math.floor(Math.random() * 9000) + 1000}`
+    // Generar ID único basado en timestamp (una sola vez)
+    const orderId = `QMH-${Date.now()}`;
+
+    const details = { 
+      address: pickupInStore ? "Retiro en local" : address, 
+      phone, 
+      distanceKm: pickupInStore ? 0 : distanceKm, 
+      deliveryFee: pickupInStore ? 0 : deliveryFee, 
+      paymentMethod: "A definir",
+      notes: pickupInStore ? `${notes} (RETIRA EN LOCAL)` : notes 
+    }
+    setOrderDetails(details)
 
     try {
       const response = await fetch(WEBHOOK_URL, {
@@ -114,15 +125,12 @@ export function CheckoutScreen() {
       
       const result = await response.json()
       
-      if (result.success) {
-        placeOrder(details) // Esto cambia el screen a "success" automáticamente
-      } else {
-        throw new Error(result.error || "Error desconocido")
-      }
+      // PASAR orderId al store (el store NO debe generar su propio ID)
+      placeOrder(details, orderId)
+      
     } catch (error) {
       console.error("Error:", error)
-      // Igual mostramos la pantalla de éxito porque el pedido probablemente se guardó
-      placeOrder(details)
+      placeOrder(details, orderId)
     } finally {
       setIsSending(false)
     }
