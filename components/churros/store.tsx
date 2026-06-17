@@ -127,7 +127,7 @@ function placeOrder(details: OrderDetails, orderId: string) {
     items: items.map((i) => ({ 
       name: i.name, 
       quantity: i.quantity,
-      unitPrice: i.unitPrice
+      price: i.price
     })),
     productIds: items.flatMap((i) => Array.from({ length: i.quantity }, () => i.productId)),
     total,

@@ -53,7 +53,7 @@ export function SuccessScreen() {
         {lastOrder.items.map((item, idx) => (
           <div key={idx} className="flex justify-between text-sm text-white mb-2">
             <span className="text-gray-300">{item.quantity}x {item.name}</span>
-            <span className="font-bold">{formatPrice(0)}</span>
+            <span className="font-bold">{formatPrice(item.quantity*item.price)}</span>
           </div>
         ))}
         
