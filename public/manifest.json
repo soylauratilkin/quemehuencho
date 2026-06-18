@@ -1,0 +1,24 @@
+{
+  "name": "Quemehuencho - Churros de Verdad",
+  "short_name": "Quemehuencho",
+  "description": "Los churros de Puerto Madryn. Pedí online y te lo llevamos a tu casa.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#ff751f",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
