@@ -2,18 +2,18 @@
 
 import { cn } from "@/lib/utils"
 
-export type CategoryId = "unidad" | "combos" | "docenas" | "all"
+// Quitamos "all" del tipo
+export type CategoryId = "unidad" | "combos" | "docenas"
 
 const categories = [
   { id: "combos" as CategoryId, label: "Combos" },
   { id: "docenas" as CategoryId, label: "Docenas" },
   { id: "unidad" as CategoryId, label: "Unidad" },
-  { id: "all" as CategoryId, label: "Todos" },
 ]
 
 interface CategorySelectorProps {
-  selectedCategory: CategoryId | "all"
-  onCategoryChange: (category: CategoryId | "all") => void
+  selectedCategory: CategoryId
+  onCategoryChange: (category: CategoryId) => void
 }
 
 export function CategorySelector({ selectedCategory, onCategoryChange }: CategorySelectorProps) {

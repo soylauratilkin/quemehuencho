@@ -44,7 +44,7 @@ export function SuccessScreen() {
       <h1 className="mb-2 font-heading text-2xl font-bold text-white">Procesando pedido...</h1>
       
       <div className="mb-6 text-sm text-red-400 font-bold bg-red-900/20 p-4 rounded-xl border border-red-500/50 max-w-sm">
-        ⚠️ Tu pedido <span className="underline">NO es efectivo</span> hasta que recibas un mensaje de confirmación por WhatsApp. Por favor, verificá que tu número sea correcto.
+        ⚠️ Tu pedido <span className="underline">NO es efectivo</span> hasta que recibas un mensaje de confirmación por WhatsApp. Si tardamos en confirmar por favor contactanos por WhatsApp.
       </div>
 
       <div className="mb-6 w-full max-w-sm rounded-3xl bg-[#111] p-5 shadow-sm ring-1 ring-[#333] text-left">
