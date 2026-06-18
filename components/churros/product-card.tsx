@@ -48,7 +48,7 @@ export function ProductCard({ product }: ProductCardProps) {
             {product.name}
           </h3>
           {product.description && (
-            <p className="mt-1 text-sm text-gray-100 drop-shadow-md">
+            <p className="mt-2 text-base md:text-lg font-extrabold text-white drop-shadow-md">
               {product.description}
             </p>
           )}
