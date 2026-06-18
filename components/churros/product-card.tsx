@@ -21,7 +21,7 @@ export function ProductCard({ product }: ProductCardProps) {
       {product.image && !imageError ? (
         <>
           {/* Gradiente overlay - SIEMPRE detrás del contenido */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-transparent z-10" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent z-10" />
           
           {/* Imagen */}
           <img
