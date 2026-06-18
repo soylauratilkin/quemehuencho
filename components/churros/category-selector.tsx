@@ -2,13 +2,12 @@
 
 import { cn } from "@/lib/utils"
 
-// Quitamos "all" del tipo
 export type CategoryId = "unidad" | "combos" | "docenas"
 
 const categories = [
-  { id: "combos" as CategoryId, label: "Combos" },
-  { id: "docenas" as CategoryId, label: "Docenas" },
-  { id: "unidad" as CategoryId, label: "Unidad" },
+  { id: "combos" as CategoryId, label: "Combos", emoji: "" },
+  { id: "docenas" as CategoryId, label: "Por docena", emoji: "" },
+  { id: "unidad" as CategoryId, label: "Uno por uno", emoji: "" },
 ]
 
 interface CategorySelectorProps {
@@ -18,18 +17,19 @@ interface CategorySelectorProps {
 
 export function CategorySelector({ selectedCategory, onCategoryChange }: CategorySelectorProps) {
   return (
-    <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+    <div className="flex gap-2 pb-2">
       {categories.map((cat) => (
         <button
           key={cat.id}
           onClick={() => onCategoryChange(cat.id)}
           className={cn(
-            "shrink-0 rounded-full px-5 py-2 text-sm font-bold transition-all",
+            "flex-1 rounded-full px-3 py-2.5 text-sm font-bold transition-all text-center",
             selectedCategory === cat.id
-              ? "bg-[#ff751f] text-black"
+              ? "bg-[#ff751f] text-black shadow-lg"
               : "bg-[#1a1a1a] text-gray-300 hover:bg-[#2a2a2a]"
           )}
         >
+          {cat.emoji && <span className="mr-1">{cat.emoji}</span>}
           {cat.label}
         </button>
       ))}

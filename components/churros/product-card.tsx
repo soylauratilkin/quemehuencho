@@ -44,7 +44,7 @@ export function ProductCard({ product }: ProductCardProps) {
       <div className="relative z-20 flex h-full flex-col justify-between p-5">
         {/* Nombre del producto */}
         <div>
-          <h3 className="font-heading text-xl font-extrabold text-white drop-shadow-lg uppercase tracking-wide">
+          <h3 className="font-heading text-xl font-extrabold text-white drop-shadow-lg normal-case tracking-wide">
             {product.name}
           </h3>
           {product.description && (
