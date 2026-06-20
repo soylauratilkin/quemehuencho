@@ -27,20 +27,15 @@ type Pedido = {
 type Filtro = "todos" | "mostrador" | "mesas" | "envios"
 type EstadoFiltro = "activos" | "todos"
 
-const [reenviadoCliente, setReenviadoCliente] = useState<string | null>(null)
-const [reenviadoDelivery, setReenviadoDelivery] = useState<string | null>(null)
-const [ultimoPedidoId, setUltimoPedidoId] = useState<string | null>(null)
-
 function parseFecha(fechaStr: string): Date {
   try {
-    // Formato esperado: "20/6/2026 15:17:14" o "20/6/2026, 15:17:14"
     const cleaned = fechaStr.replace(",", "")
     const parts = cleaned.split(" ")
     const dateParts = parts[0].split("/")
     const timeParts = parts[1] ? parts[1].split(":") : ["00", "00", "00"]
     
     const day = parseInt(dateParts[0])
-    const month = parseInt(dateParts[1]) - 1 // Mes es 0-indexed
+    const month = parseInt(dateParts[1]) - 1
     const year = parseInt(dateParts[2])
     const hour = parseInt(timeParts[0] || "0")
     const minute = parseInt(timeParts[1] || "0")
@@ -48,10 +43,9 @@ function parseFecha(fechaStr: string): Date {
     
     return new Date(year, month, day, hour, minute, second)
   } catch (e) {
-    return new Date() // Fallback a ahora si hay error
+    return new Date()
   }
 }
-
 
 export default function PedidosPage() {
   const [pedidos, setPedidos] = useState<Pedido[]>([])
@@ -62,6 +56,9 @@ export default function PedidosPage() {
   const [editandoId, setEditandoId] = useState<string | null>(null)
   const [pedidoEditando, setPedidoEditando] = useState<Pedido | null>(null)
   const [itemsEdit, setItemsEdit] = useState<PedidoItem[]>([])
+  const [reenviadoCliente, setReenviadoCliente] = useState<string | null>(null)
+  const [reenviadoDelivery, setReenviadoDelivery] = useState<string | null>(null)
+  const [ultimoPedidoId, setUltimoPedidoId] = useState<string | null>(null)
 
   useEffect(() => {
     async function loadProducts() {
@@ -86,7 +83,6 @@ export default function PedidosPage() {
       if (ultimoPedidoId && nuevosPedidos.length > 0) {
         const pedidoMasReciente = nuevosPedidos[0]
         if (pedidoMasReciente.id !== ultimoPedidoId && pedidoMasReciente.origen === "web") {
-          // Reproducir sonido
           try {
             const audio = new Audio("/sounds/notificacion.mp3")
             audio.volume = 0.7
@@ -97,7 +93,6 @@ export default function PedidosPage() {
         }
       }
       
-      // Actualizar último ID conocido
       if (nuevosPedidos.length > 0) {
         setUltimoPedidoId(nuevosPedidos[0].id)
       }
@@ -125,44 +120,41 @@ export default function PedidosPage() {
     cargarPedidos()
   }
 
-async function reenviarCliente(id: string) {
-  try {
-    const res = await fetch("/api/admin/pedidos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "reenviarCliente", id })
-    })
-    const data = await res.json()
-    if (data.success && data.link) {
-      window.open(data.link, "_blank")
-      setReenviadoCliente(id)
-      setTimeout(() => setReenviadoCliente(null), 3000)
+  async function reenviarCliente(id: string) {
+    try {
+      const res = await fetch("/api/admin/pedidos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reenviarCliente", id })
+      })
+      const data = await res.json()
+      if (data.success && data.link) {
+        window.open(data.link, "_blank")
+        setReenviadoCliente(id)
+        setTimeout(() => setReenviadoCliente(null), 3000)
+      }
+    } catch (e) {
+      console.error(e)
     }
-  } catch (e) {
-    console.error(e)
   }
-}
 
-async function reenviarDelivery(id: string) {
-  try {
-    const res = await fetch("/api/admin/pedidos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "reenviarDelivery", id })
-    })
-    const data = await res.json()
-    if (data.success && data.link) {
-      window.open(data.link, "_blank")
-      setReenviadoDelivery(id)
-      setTimeout(() => setReenviadoDelivery(null), 3000)
+  async function reenviarDelivery(id: string) {
+    try {
+      const res = await fetch("/api/admin/pedidos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reenviarDelivery", id })
+      })
+      const data = await res.json()
+      if (data.success && data.link) {
+        window.open(data.link, "_blank")
+        setReenviadoDelivery(id)
+        setTimeout(() => setReenviadoDelivery(null), 3000)
+      }
+    } catch (e) {
+      console.error(e)
     }
-  } catch (e) {
-    console.error(e)
   }
-}
-
-
-
 
   function clasificar(p: Pedido): "mostrador" | "mesas" | "envios" {
     const ub = p.ubicacion?.toLowerCase() || ""
@@ -173,41 +165,32 @@ async function reenviarDelivery(id: string) {
     return "mesas"
   }
 
-  // Filtrar pedidos de las últimas 24 horas usando el timestamp del ID
   const pedidosHoy = pedidos.filter((p) => {
     try {
-      // Extraer timestamp del ID (formato: QMH-1781979433101)
       const match = p.id.match(/^QMH-(\d+)$/)
-      if (!match) return true // Si no tiene formato válido, mostrar igual
+      if (!match) return true
       
       const timestamp = parseInt(match[1])
       const fechaPedido = new Date(timestamp)
       const ahora = new Date()
-      
-      // Calcular diferencia en horas
       const horasDeDiferencia = (ahora.getTime() - fechaPedido.getTime()) / (1000 * 60 * 60)
       
-      // Mostrar pedidos de las últimas 24 horas
       return horasDeDiferencia >= 0 && horasDeDiferencia <= 24
     } catch (e) {
-      return true // Si hay error, mostrar el pedido
+      return true
     }
   })
 
-  // Aplicar filtro de ubicación
   const pedidosPorUbicacion = pedidosHoy.filter((p) => {
     if (filtro === "todos") return true
     return clasificar(p) === filtro
   })
 
-  // Aplicar filtro de estado
   const pedidosFiltrados = pedidosPorUbicacion.filter((p) => {
     if (estadoFiltro === "todos") return true
-    // "activos" = no pagados
     return !p.pagado
   })
 
-  // Calcular totales según el filtro de estado
   const calcularTotales = (lista: Pedido[]) => ({
     mostrador: lista.filter(p => clasificar(p) === "mostrador").reduce((acc, p) => acc + (p.total || 0), 0),
     mesas: lista.filter(p => clasificar(p) === "mesas").reduce((acc, p) => acc + (p.total || 0), 0),
@@ -215,10 +198,9 @@ async function reenviarDelivery(id: string) {
     total: lista.reduce((acc, p) => acc + (p.total || 0), 0),
   })
 
-  const acumuladoFacturado = calcularTotales(pedidosHoy) // Todo lo facturado hoy
-  const acumuladoPendiente = calcularTotales(pedidosHoy.filter(p => !p.pagado)) // Lo que falta cobrar
+  const acumuladoFacturado = calcularTotales(pedidosHoy)
+  const acumuladoPendiente = calcularTotales(pedidosHoy.filter(p => !p.pagado))
 
-  // Contadores por filtro
   const contadores = {
     todos: estadoFiltro === "activos" 
       ? pedidosHoy.filter(p => !p.pagado).length 
@@ -234,7 +216,6 @@ async function reenviarDelivery(id: string) {
       : pedidosHoy.filter(p => clasificar(p) === "envios").length,
   }
 
-  // Edición de items
   function getProductosDisponibles(origen: string): Product[] {
     if (origen === "web") {
       return productos.filter(p => p.category !== "local")
@@ -336,7 +317,6 @@ async function reenviarDelivery(id: string) {
     cargarPedidos()
   }
 
-  // Determinar qué acumulado mostrar según el filtro
   const acumuladoMostrar = estadoFiltro === "activos" ? acumuladoPendiente : acumuladoFacturado
   const labelAcumulado = estadoFiltro === "activos" ? "Pendiente" : "Facturado"
 
@@ -371,7 +351,7 @@ async function reenviarDelivery(id: string) {
               estadoFiltro === "activos" ? "bg-red-500 text-white" : "bg-[#1a1a1a] text-gray-400"
             }`}
           >
-            <EyeOff className="size-3" /> Solo activos
+            Solo activos
           </button>
           <button
             onClick={() => setEstadoFiltro("todos")}
@@ -379,7 +359,7 @@ async function reenviarDelivery(id: string) {
               estadoFiltro === "todos" ? "bg-green-500 text-white" : "bg-[#1a1a1a] text-gray-400"
             }`}
           >
-            <Eye className="size-3" /> Ver todos
+            Ver todos
           </button>
         </div>
       </div>
@@ -569,7 +549,6 @@ async function reenviarDelivery(id: string) {
                 {/* ACCIONES */}
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <div className="flex gap-2 flex-wrap">
-                    {/* ENTREGADO */}
                     <button
                       onClick={() => toggleEstado(pedido.id, "entregado")}
                       className={`flex size-10 items-center justify-center rounded-full transition-all ${
@@ -578,8 +557,6 @@ async function reenviarDelivery(id: string) {
                     >
                       <HandCoins className="size-5" />
                     </button>
-                    
-                    {/* PAGADO */}
                     <button
                       onClick={() => toggleEstado(pedido.id, "pagado")}
                       className={`flex size-10 items-center justify-center rounded-full transition-all ${
@@ -588,8 +565,6 @@ async function reenviarDelivery(id: string) {
                     >
                       <Banknote className="size-5" />
                     </button>
-                    
-                    {/* REENVIAR AL CLIENTE (solo web) */}
                     {pedido.origen === "web" && (
                       <button
                         onClick={() => reenviarCliente(pedido.id)}
@@ -601,8 +576,6 @@ async function reenviarDelivery(id: string) {
                         <MessageCircle className="size-5" />
                       </button>
                     )}
-                    
-                    {/* REENVIAR AL DELIVERY (solo envíos) */}
                     {clasificar(pedido) === "envios" && pedido.origen === "web" && (
                       <button
                         onClick={() => reenviarDelivery(pedido.id)}
