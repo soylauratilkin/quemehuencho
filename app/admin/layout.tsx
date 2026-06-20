@@ -81,23 +81,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </aside>
 
       {/* ========================================= */}
-      {/* CONTENEDOR PRINCIPAL (header + main + nav)*/}
+      {/* CONTENEDOR PRINCIPAL (main + nav)         */}
       {/* ========================================= */}
       <div className="flex min-h-dvh flex-col md:ml-64">
         
-      {/* ========================================= */}
-      {/* HEADER MÓVIL - Solo en celular            */}
-      {/* ========================================= */}
-      <header className="md:hidden sticky top-0 z-30 flex items-center justify-end border-b border-[#222] bg-[#0a0a0a]/95 backdrop-blur-md px-3 py-2">
-        <button
-          onClick={handleLogout}
-          className="flex size-9 items-center justify-center rounded-full bg-[#1a1a1a] text-gray-400 hover:text-red-400"
-          aria-label="Cerrar sesión"
-        >
-          <LogOut className="size-4" />
-        </button>
-      </header>
-
         {/* CONTENIDO PRINCIPAL */}
         <main className="flex-1 p-4 pb-24 md:p-8 md:pb-8">
           {children}
