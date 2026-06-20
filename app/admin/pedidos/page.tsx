@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
-import { HandCoins, Banknote, Edit3, Plus, Trash2, Check, Minus, Eye, EyeOff } from "lucide-react"
+import { HandCoins, Banknote, Edit3, Plus, Trash2, Check, Minus, MessageCircle, Truck } from "lucide-react"
 import { formatPrice, fetchProductsFromGoogleSheet, MENU_CSV_URL, type Product } from "@/lib/menu-data"
 
 type PedidoItem = {
@@ -27,6 +27,9 @@ type Pedido = {
 type Filtro = "todos" | "mostrador" | "mesas" | "envios"
 type EstadoFiltro = "activos" | "todos"
 
+const [reenviadoCliente, setReenviadoCliente] = useState<string | null>(null)
+const [reenviadoDelivery, setReenviadoDelivery] = useState<string | null>(null)
+const [ultimoPedidoId, setUltimoPedidoId] = useState<string | null>(null)
 
 function parseFecha(fechaStr: string): Date {
   try {
@@ -77,13 +80,35 @@ export default function PedidosPage() {
     try {
       const res = await fetch("/api/admin/pedidos")
       const data = await res.json()
-      setPedidos(data.pedidos || [])
+      const nuevosPedidos: Pedido[] = data.pedidos || []
+      
+      // Detectar pedido nuevo de la web
+      if (ultimoPedidoId && nuevosPedidos.length > 0) {
+        const pedidoMasReciente = nuevosPedidos[0]
+        if (pedidoMasReciente.id !== ultimoPedidoId && pedidoMasReciente.origen === "web") {
+          // Reproducir sonido
+          try {
+            const audio = new Audio("/sounds/notificacion.mp3")
+            audio.volume = 0.7
+            audio.play().catch(e => console.log("No se pudo reproducir sonido:", e))
+          } catch (e) {
+            console.log("Error con sonido:", e)
+          }
+        }
+      }
+      
+      // Actualizar último ID conocido
+      if (nuevosPedidos.length > 0) {
+        setUltimoPedidoId(nuevosPedidos[0].id)
+      }
+      
+      setPedidos(nuevosPedidos)
     } catch (e) {
       console.error(e)
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [ultimoPedidoId])
 
   useEffect(() => {
     cargarPedidos()
@@ -99,6 +124,45 @@ export default function PedidosPage() {
     })
     cargarPedidos()
   }
+
+async function reenviarCliente(id: string) {
+  try {
+    const res = await fetch("/api/admin/pedidos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "reenviarCliente", id })
+    })
+    const data = await res.json()
+    if (data.success && data.link) {
+      window.open(data.link, "_blank")
+      setReenviadoCliente(id)
+      setTimeout(() => setReenviadoCliente(null), 3000)
+    }
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+async function reenviarDelivery(id: string) {
+  try {
+    const res = await fetch("/api/admin/pedidos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "reenviarDelivery", id })
+    })
+    const data = await res.json()
+    if (data.success && data.link) {
+      window.open(data.link, "_blank")
+      setReenviadoDelivery(id)
+      setTimeout(() => setReenviadoDelivery(null), 3000)
+    }
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+
+
 
   function clasificar(p: Pedido): "mostrador" | "mesas" | "envios" {
     const ub = p.ubicacion?.toLowerCase() || ""
@@ -503,8 +567,9 @@ export default function PedidosPage() {
                 )}
 
                 {/* ACCIONES */}
-                <div className="flex items-center justify-between">
-                  <div className="flex gap-2">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex gap-2 flex-wrap">
+                    {/* ENTREGADO */}
                     <button
                       onClick={() => toggleEstado(pedido.id, "entregado")}
                       className={`flex size-10 items-center justify-center rounded-full transition-all ${
@@ -513,6 +578,8 @@ export default function PedidosPage() {
                     >
                       <HandCoins className="size-5" />
                     </button>
+                    
+                    {/* PAGADO */}
                     <button
                       onClick={() => toggleEstado(pedido.id, "pagado")}
                       className={`flex size-10 items-center justify-center rounded-full transition-all ${
@@ -521,6 +588,32 @@ export default function PedidosPage() {
                     >
                       <Banknote className="size-5" />
                     </button>
+                    
+                    {/* REENVIAR AL CLIENTE (solo web) */}
+                    {pedido.origen === "web" && (
+                      <button
+                        onClick={() => reenviarCliente(pedido.id)}
+                        className={`flex size-10 items-center justify-center rounded-full transition-all ${
+                          reenviadoCliente === pedido.id ? "bg-green-500 text-white" : "bg-red-500 text-white hover:bg-red-600"
+                        }`}
+                        title="Reenviar confirmación al cliente"
+                      >
+                        <MessageCircle className="size-5" />
+                      </button>
+                    )}
+                    
+                    {/* REENVIAR AL DELIVERY (solo envíos) */}
+                    {clasificar(pedido) === "envios" && pedido.origen === "web" && (
+                      <button
+                        onClick={() => reenviarDelivery(pedido.id)}
+                        className={`flex size-10 items-center justify-center rounded-full transition-all ${
+                          reenviadoDelivery === pedido.id ? "bg-green-500 text-white" : "bg-red-500 text-white hover:bg-red-600"
+                        }`}
+                        title="Reenviar al delivery"
+                      >
+                        <Truck className="size-5" />
+                      </button>
+                    )}
                   </div>
 
                   {!isEditing && (

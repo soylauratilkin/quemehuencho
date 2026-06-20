@@ -91,7 +91,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </main>
 
         {/* BOTTOM NAV - Solo en móvil */}
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-[#222] bg-[#0a0a0a]/95 backdrop-blur-md">
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#0a0a0a]/95 backdrop-blur-md">
           <div className="grid grid-cols-3 gap-1 px-2 py-2">
             <button
               onClick={() => router.push("/admin/pedidos")}
