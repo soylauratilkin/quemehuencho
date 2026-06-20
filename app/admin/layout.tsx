@@ -83,17 +83,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* ========================================= */}
       {/* HEADER MÓVIL - Solo en celular            */}
       {/* ========================================= */}
-      <header className="md:hidden sticky top-0 z-30 flex items-center justify-between border-b border-[#222] bg-[#0a0a0a]/95 backdrop-blur-md px-4 py-3">
+      <header className="md:hidden sticky top-0 z-30 flex items-center justify-center border-b border-[#222] bg-[#0a0a0a]/95 backdrop-blur-md px-3 py-2">
         <div className="flex items-center gap-2">
-          <img src="/images/logo.png" alt="Quemehuencho" className="h-9 w-9 rounded-full" />
-          <div>
-            <h2 className="text-sm font-bold text-[#ff751f]">Quemehuencho</h2>
-            <p className="text-[10px] text-gray-400">Modo Admin</p>
+          <img src="/images/logo.png" alt="Quemehuencho" className="h-7 w-7 rounded-full" />
+          <div className="leading-tight">
+            <h2 className="text-xs font-bold text-[#ff751f]">Quemehuencho</h2>
+            <p className="text-[9px] text-gray-400">Modo Admin</p>
           </div>
         </div>
         <button
           onClick={handleLogout}
-          className="flex size-9 items-center justify-center rounded-full bg-[#1a1a1a] text-gray-400 hover:text-red-400"
+          className="absolute right-3 flex size-8 items-center justify-center rounded-full bg-[#1a1a1a] text-gray-400 hover:text-red-400"
           aria-label="Cerrar sesión"
         >
           <LogOut className="size-4" />
