@@ -86,11 +86,16 @@ export default function PedidosPage() {
     return "mesas"
   }
 
-  // Filtrar pedidos del día
+  // Filtrar pedidos de las últimas 24 horas
   const pedidosHoy = pedidos.filter((p) => {
-    const fecha = new Date(p.fecha)
-    const hoy = new Date()
-    return fecha.toDateString() === hoy.toDateString()
+    try {
+      const fecha = new Date(p.fecha)
+      const ahora = new Date()
+      const horasDeDiferencia = (ahora.getTime() - fecha.getTime()) / (1000 * 60 * 60)
+      return horasDeDiferencia >= 0 && horasDeDiferencia <= 24
+    } catch (e) {
+      return true
+    }
   })
 
   // Aplicar filtro de ubicación
