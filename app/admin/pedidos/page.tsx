@@ -27,6 +27,29 @@ type Pedido = {
 type Filtro = "todos" | "mostrador" | "mesas" | "envios"
 type EstadoFiltro = "activos" | "todos"
 
+
+function parseFecha(fechaStr: string): Date {
+  try {
+    // Formato esperado: "20/6/2026 15:17:14" o "20/6/2026, 15:17:14"
+    const cleaned = fechaStr.replace(",", "")
+    const parts = cleaned.split(" ")
+    const dateParts = parts[0].split("/")
+    const timeParts = parts[1] ? parts[1].split(":") : ["00", "00", "00"]
+    
+    const day = parseInt(dateParts[0])
+    const month = parseInt(dateParts[1]) - 1 // Mes es 0-indexed
+    const year = parseInt(dateParts[2])
+    const hour = parseInt(timeParts[0] || "0")
+    const minute = parseInt(timeParts[1] || "0")
+    const second = parseInt(timeParts[2] || "0")
+    
+    return new Date(year, month, day, hour, minute, second)
+  } catch (e) {
+    return new Date() // Fallback a ahora si hay error
+  }
+}
+
+
 export default function PedidosPage() {
   const [pedidos, setPedidos] = useState<Pedido[]>([])
   const [productos, setProductos] = useState<Product[]>([])
@@ -86,15 +109,24 @@ export default function PedidosPage() {
     return "mesas"
   }
 
-  // Filtrar pedidos de las últimas 24 horas
+  // Filtrar pedidos de las últimas 24 horas usando el timestamp del ID
   const pedidosHoy = pedidos.filter((p) => {
     try {
-      const fecha = new Date(p.fecha)
+      // Extraer timestamp del ID (formato: QMH-1781979433101)
+      const match = p.id.match(/^QMH-(\d+)$/)
+      if (!match) return true // Si no tiene formato válido, mostrar igual
+      
+      const timestamp = parseInt(match[1])
+      const fechaPedido = new Date(timestamp)
       const ahora = new Date()
-      const horasDeDiferencia = (ahora.getTime() - fecha.getTime()) / (1000 * 60 * 60)
+      
+      // Calcular diferencia en horas
+      const horasDeDiferencia = (ahora.getTime() - fechaPedido.getTime()) / (1000 * 60 * 60)
+      
+      // Mostrar pedidos de las últimas 24 horas
       return horasDeDiferencia >= 0 && horasDeDiferencia <= 24
     } catch (e) {
-      return true
+      return true // Si hay error, mostrar el pedido
     }
   })
 
