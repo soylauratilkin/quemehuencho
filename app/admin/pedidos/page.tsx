@@ -1,8 +1,8 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
-import { HandCoins, Banknote, Edit3, Plus, Trash2, X, Check } from "lucide-react"
-import { formatPrice } from "@/lib/menu-data"
+import { HandCoins, Banknote, Edit3, Plus, Trash2, Check, Minus, Eye, EyeOff } from "lucide-react"
+import { formatPrice, fetchProductsFromGoogleSheet, MENU_CSV_URL, type Product } from "@/lib/menu-data"
 
 type PedidoItem = {
   productId?: string
@@ -25,13 +25,29 @@ type Pedido = {
 }
 
 type Filtro = "todos" | "mostrador" | "mesas" | "envios"
+type EstadoFiltro = "activos" | "todos"
 
 export default function PedidosPage() {
   const [pedidos, setPedidos] = useState<Pedido[]>([])
+  const [productos, setProductos] = useState<Product[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [filtro, setFiltro] = useState<Filtro>("todos")
+  const [estadoFiltro, setEstadoFiltro] = useState<EstadoFiltro>("activos")
   const [editandoId, setEditandoId] = useState<string | null>(null)
+  const [pedidoEditando, setPedidoEditando] = useState<Pedido | null>(null)
   const [itemsEdit, setItemsEdit] = useState<PedidoItem[]>([])
+
+  useEffect(() => {
+    async function loadProducts() {
+      try {
+        const fetched = await fetchProductsFromGoogleSheet(MENU_CSV_URL)
+        setProductos(fetched)
+      } catch (e) {
+        console.error("Error cargando productos:", e)
+      }
+    }
+    loadProducts()
+  }, [])
 
   const cargarPedidos = useCallback(async () => {
     setIsLoading(true)
@@ -61,121 +77,221 @@ export default function PedidosPage() {
     cargarPedidos()
   }
 
-  // Clasificar pedido
   function clasificar(p: Pedido): "mostrador" | "mesas" | "envios" {
-    if (p.origen === "web" || p.ubicacion?.toLowerCase().includes("delivery") || p.ubicacion?.toLowerCase().includes("envio")) {
+    const ub = p.ubicacion?.toLowerCase() || ""
+    if (p.origen === "web" || ub.includes("envio") || ub.includes("retiro") || ub === "web") {
       return "envios"
     }
-    if (p.ubicacion === "Mostrador") return "mostrador"
-    return "mesas" // Mesa 1-5 o Baúl
+    if (ub === "mostrador") return "mostrador"
+    return "mesas"
   }
 
-  // Filtrar pedidos abiertos (no pagados)
-  const pedidosAbiertos = pedidos.filter((p) => !p.pagado)
-
-  const pedidosFiltrados = pedidosAbiertos.filter((p) => {
-    if (filtro === "todos") return true
-    return clasificar(p) === filtro
-  })
-
-  // ACUMULADO DE VENTAS DEL DÍA (todos los pedidos, incluso pagados)
-  const ventasHoy = pedidos.filter((p) => {
+  // Filtrar pedidos del día
+  const pedidosHoy = pedidos.filter((p) => {
     const fecha = new Date(p.fecha)
     const hoy = new Date()
     return fecha.toDateString() === hoy.toDateString()
   })
 
-  const acumulado = {
-    mostrador: ventasHoy.filter(p => clasificar(p) === "mostrador").reduce((acc, p) => acc + p.total, 0),
-    mesas: ventasHoy.filter(p => clasificar(p) === "mesas").reduce((acc, p) => acc + p.total, 0),
-    envios: ventasHoy.filter(p => clasificar(p) === "envios").reduce((acc, p) => acc + p.total, 0),
-    total: ventasHoy.reduce((acc, p) => acc + p.total, 0),
+  // Aplicar filtro de ubicación
+  const pedidosPorUbicacion = pedidosHoy.filter((p) => {
+    if (filtro === "todos") return true
+    return clasificar(p) === filtro
+  })
+
+  // Aplicar filtro de estado
+  const pedidosFiltrados = pedidosPorUbicacion.filter((p) => {
+    if (estadoFiltro === "todos") return true
+    // "activos" = no pagados
+    return !p.pagado
+  })
+
+  // Calcular totales según el filtro de estado
+  const calcularTotales = (lista: Pedido[]) => ({
+    mostrador: lista.filter(p => clasificar(p) === "mostrador").reduce((acc, p) => acc + (p.total || 0), 0),
+    mesas: lista.filter(p => clasificar(p) === "mesas").reduce((acc, p) => acc + (p.total || 0), 0),
+    envios: lista.filter(p => clasificar(p) === "envios").reduce((acc, p) => acc + (p.total || 0), 0),
+    total: lista.reduce((acc, p) => acc + (p.total || 0), 0),
+  })
+
+  const acumuladoFacturado = calcularTotales(pedidosHoy) // Todo lo facturado hoy
+  const acumuladoPendiente = calcularTotales(pedidosHoy.filter(p => !p.pagado)) // Lo que falta cobrar
+
+  // Contadores por filtro
+  const contadores = {
+    todos: estadoFiltro === "activos" 
+      ? pedidosHoy.filter(p => !p.pagado).length 
+      : pedidosHoy.length,
+    mostrador: estadoFiltro === "activos"
+      ? pedidosHoy.filter(p => clasificar(p) === "mostrador" && !p.pagado).length
+      : pedidosHoy.filter(p => clasificar(p) === "mostrador").length,
+    mesas: estadoFiltro === "activos"
+      ? pedidosHoy.filter(p => clasificar(p) === "mesas" && !p.pagado).length
+      : pedidosHoy.filter(p => clasificar(p) === "mesas").length,
+    envios: estadoFiltro === "activos"
+      ? pedidosHoy.filter(p => clasificar(p) === "envios" && !p.pagado).length
+      : pedidosHoy.filter(p => clasificar(p) === "envios").length,
   }
 
-  // EDITAR ITEMS
+  // Edición de items
+  function getProductosDisponibles(origen: string): Product[] {
+    if (origen === "web") {
+      return productos.filter(p => p.category !== "local")
+    }
+    return productos
+  }
+
   function empezarEditar(pedido: Pedido) {
-    // Parsear detalle si no hay items
     let items: PedidoItem[] = pedido.items || []
+    
     if (items.length === 0 && pedido.detalle) {
       items = pedido.detalle.split(" | ").map((d) => {
         const match = d.match(/^(\d+)x\s+(.+)$/)
         if (match) {
-          return { name: match[2], quantity: parseInt(match[1]), price: 0 }
+          const nombre = match[2]
+          const prod = productos.find(p => p.name.toLowerCase() === nombre.toLowerCase())
+          return { 
+            productId: prod?.id,
+            name: prod?.name || nombre, 
+            quantity: parseInt(match[1]), 
+            price: prod?.price || 0 
+          }
         }
         return { name: d, quantity: 1, price: 0 }
-      })
+      }).filter(i => i.name && i.name.trim() !== "")
     }
+    
     setItemsEdit(items)
+    setPedidoEditando(pedido)
     setEditandoId(pedido.id)
   }
 
   function agregarItem() {
-    setItemsEdit([...itemsEdit, { name: "", quantity: 1, price: 0 }])
+    const disponibles = pedidoEditando ? getProductosDisponibles(pedidoEditando.origen) : productos
+    if (disponibles.length === 0) return
+    
+    const primerProd = disponibles[0]
+    setItemsEdit([...itemsEdit, { 
+      productId: primerProd.id,
+      name: primerProd.name, 
+      quantity: 1, 
+      price: primerProd.price 
+    }])
   }
 
-  function actualizarItem(idx: number, campo: keyof PedidoItem, valor: any) {
-    setItemsEdit(itemsEdit.map((item, i) => i === idx ? { ...item, [campo]: valor } : item))
+  function actualizarItem(idx: number, productId: string) {
+    const prod = productos.find(p => p.id === productId)
+    if (!prod) return
+    
+    setItemsEdit(itemsEdit.map((item, i) => 
+      i === idx 
+        ? { ...item, productId: prod.id, name: prod.name, price: prod.price }
+        : item
+    ))
+  }
+
+  function cambiarCantidad(idx: number, delta: number) {
+    setItemsEdit(itemsEdit.map((item, i) => {
+      if (i !== idx) return item
+      const nuevaCantidad = Math.max(1, item.quantity + delta)
+      return { ...item, quantity: nuevaCantidad }
+    }))
   }
 
   function eliminarItem(idx: number) {
     setItemsEdit(itemsEdit.filter((_, i) => i !== idx))
   }
 
+  function calcularTotal(items: PedidoItem[]): number {
+    return items.reduce((acc, item) => {
+      const price = Number(item.price) || 0
+      const qty = Number(item.quantity) || 0
+      return acc + (price * qty)
+    }, 0)
+  }
+
   async function guardarEdicion() {
-    if (!editandoId) return
+    if (!editandoId || itemsEdit.length === 0) return
+    
+    const itemsValidos = itemsEdit.filter(i => i.name && i.name.trim() !== "" && i.productId)
+    
+    if (itemsValidos.length === 0) {
+      alert("Debe haber al menos un item válido")
+      return
+    }
+    
     await fetch("/api/admin/pedidos", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         action: "editarPedido",
         id: editandoId,
-        items: itemsEdit
+        items: itemsValidos
       })
     })
     setEditandoId(null)
+    setPedidoEditando(null)
     setItemsEdit([])
     cargarPedidos()
   }
 
-  // Contadores por filtro
-  const contadores = {
-    todos: pedidosAbiertos.length,
-    mostrador: pedidosAbiertos.filter(p => clasificar(p) === "mostrador").length,
-    mesas: pedidosAbiertos.filter(p => clasificar(p) === "mesas").length,
-    envios: pedidosAbiertos.filter(p => clasificar(p) === "envios").length,
-  }
+  // Determinar qué acumulado mostrar según el filtro
+  const acumuladoMostrar = estadoFiltro === "activos" ? acumuladoPendiente : acumuladoFacturado
+  const labelAcumulado = estadoFiltro === "activos" ? "Pendiente" : "Facturado"
 
   return (
     <div>
       {/* ACUMULADO DE VENTAS */}
-      <div className="mb-6 grid grid-cols-2 gap-2 md:grid-cols-4">
+      <div className="mb-4 grid grid-cols-2 gap-2 md:grid-cols-4">
         <div className="rounded-2xl bg-[#111] p-3 ring-1 ring-[#333]">
           <p className="text-[10px] font-bold uppercase text-gray-500">Mostrador</p>
-          <p className="text-lg font-extrabold text-white">{formatPrice(acumulado.mostrador)}</p>
+          <p className="text-lg font-extrabold text-white">{formatPrice(acumuladoMostrar.mostrador)}</p>
         </div>
         <div className="rounded-2xl bg-[#111] p-3 ring-1 ring-[#333]">
           <p className="text-[10px] font-bold uppercase text-gray-500">Mesas</p>
-          <p className="text-lg font-extrabold text-white">{formatPrice(acumulado.mesas)}</p>
+          <p className="text-lg font-extrabold text-white">{formatPrice(acumuladoMostrar.mesas)}</p>
         </div>
         <div className="rounded-2xl bg-[#111] p-3 ring-1 ring-[#333]">
           <p className="text-[10px] font-bold uppercase text-gray-500">Envíos</p>
-          <p className="text-lg font-extrabold text-white">{formatPrice(acumulado.envios)}</p>
+          <p className="text-lg font-extrabold text-white">{formatPrice(acumuladoMostrar.envios)}</p>
         </div>
         <div className="rounded-2xl bg-[#ff751f] p-3">
-          <p className="text-[10px] font-bold uppercase text-black/70">Total hoy</p>
-          <p className="text-lg font-extrabold text-black">{formatPrice(acumulado.total)}</p>
+          <p className="text-[10px] font-bold uppercase text-black/70">Total {labelAcumulado}</p>
+          <p className="text-lg font-extrabold text-black">{formatPrice(acumuladoMostrar.total)}</p>
+        </div>
+      </div>
+
+      {/* TOGGLE: Activos vs Todos */}
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex gap-2">
+          <button
+            onClick={() => setEstadoFiltro("activos")}
+            className={`flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-bold transition-all ${
+              estadoFiltro === "activos" ? "bg-red-500 text-white" : "bg-[#1a1a1a] text-gray-400"
+            }`}
+          >
+            <EyeOff className="size-3" /> Solo activos
+          </button>
+          <button
+            onClick={() => setEstadoFiltro("todos")}
+            className={`flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-bold transition-all ${
+              estadoFiltro === "todos" ? "bg-green-500 text-white" : "bg-[#1a1a1a] text-gray-400"
+            }`}
+          >
+            <Eye className="size-3" /> Ver todos
+          </button>
         </div>
       </div>
 
       {/* HEADER */}
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Pedidos Activos</h1>
-          <p className="text-xs text-gray-400">{pedidosFiltrados.length} abierto(s)</p>
+          <h1 className="text-2xl font-bold text-white">Pedidos del Día</h1>
+          <p className="text-xs text-gray-400">{pedidosFiltrados.length} pedido(s)</p>
         </div>
       </div>
 
-      {/* FILTROS */}
+      {/* FILTROS DE UBICACIÓN */}
       <div className="mb-4 flex gap-2 overflow-x-auto">
         {[
           { id: "todos" as Filtro, label: "Todos" },
@@ -202,29 +318,42 @@ export default function PedidosPage() {
         </div>
       ) : pedidosFiltrados.length === 0 ? (
         <div className="rounded-3xl bg-[#111] p-12 text-center ring-1 ring-[#333]">
-          <p className="text-lg font-bold text-gray-400">No hay pedidos activos</p>
+          <p className="text-lg font-bold text-gray-400">No hay pedidos</p>
         </div>
       ) : (
         <div className="space-y-3">
           {pedidosFiltrados.map((pedido) => {
-            const clase = clasificar(pedido)
             const isEditing = editandoId === pedido.id
             
-            // Parsear items para mostrar
             let itemsMostrar: PedidoItem[] = pedido.items || []
             if (itemsMostrar.length === 0 && pedido.detalle) {
               itemsMostrar = pedido.detalle.split(" | ").map((d) => {
                 const match = d.match(/^(\d+)x\s+(.+)$/)
-                if (match) return { name: match[2], quantity: parseInt(match[1]), price: 0 }
+                if (match) {
+                  const nombre = match[2]
+                  const prod = productos.find(p => p.name.toLowerCase() === nombre.toLowerCase())
+                  return { 
+                    productId: prod?.id,
+                    name: prod?.name || nombre, 
+                    quantity: parseInt(match[1]), 
+                    price: prod?.price || 0 
+                  }
+                }
                 return { name: d, quantity: 1, price: 0 }
-              })
+              }).filter(i => i.name && i.name.trim() !== "")
             }
+
+            const productosDisponibles = getProductosDisponibles(pedido.origen)
 
             return (
               <div
                 key={pedido.id}
                 className={`rounded-2xl p-4 ring-1 ${
-                  pedido.entregado ? "bg-blue-950/30 ring-blue-500/30" : "bg-[#111] ring-[#333]"
+                  pedido.pagado 
+                    ? "bg-green-950/20 ring-green-500/30 opacity-60"
+                    : pedido.entregado 
+                    ? "bg-blue-950/30 ring-blue-500/30" 
+                    : "bg-[#111] ring-[#333]"
                 }`}
               >
                 {/* HEADER DEL PEDIDO */}
@@ -238,73 +367,97 @@ export default function PedidosPage() {
                     </div>
                     <p className="mt-1 text-[10px] font-mono text-gray-500">{pedido.id}</p>
                   </div>
-                  <p className="text-xl font-extrabold text-[#ff751f]">{formatPrice(pedido.total)}</p>
+                  <p className="text-xl font-extrabold text-[#ff751f]">
+                    {isEditing ? formatPrice(calcularTotal(itemsEdit)) : formatPrice(pedido.total)}
+                  </p>
                 </div>
 
                 {/* ITEMS */}
                 {!isEditing ? (
                   <div className="mb-3 space-y-1 rounded-xl bg-[#0a0a0a] p-2">
-                    {itemsMostrar.map((item, idx) => (
-                      <div key={idx} className="flex items-center justify-between text-sm">
-                        <span className="text-white">
-                          <span className="font-bold text-[#ff751f]">{item.quantity}x</span>{" "}
-                          {item.name}
-                        </span>
-                        {item.price > 0 && (
-                          <span className="text-xs text-gray-400">{formatPrice(item.price * item.quantity)}</span>
-                        )}
-                      </div>
-                    ))}
+                    {itemsMostrar.length === 0 ? (
+                      <p className="text-xs text-gray-500 italic">Sin items</p>
+                    ) : (
+                      itemsMostrar.map((item, idx) => (
+                        <div key={idx} className="flex items-center justify-between text-sm">
+                          <span className="text-white">
+                            <span className="font-bold text-[#ff751f]">{item.quantity}x</span>{" "}
+                            {item.name}
+                          </span>
+                          {item.price > 0 && (
+                            <span className="text-xs text-gray-400">{formatPrice(item.price * item.quantity)}</span>
+                          )}
+                        </div>
+                      ))
+                    )}
                   </div>
                 ) : (
-                  /* MODO EDICIÓN */
                   <div className="mb-3 space-y-2 rounded-xl bg-[#0a0a0a] p-2">
                     {itemsEdit.map((item, idx) => (
-                      <div key={idx} className="flex items-center gap-1">
-                        <input
-                          type="number"
-                          value={item.quantity}
-                          onChange={(e) => actualizarItem(idx, "quantity", parseInt(e.target.value) || 1)}
-                          className="w-12 rounded bg-[#1a1a1a] px-2 py-1 text-center text-xs text-white"
-                        />
-                        <input
-                          type="text"
-                          value={item.name}
-                          onChange={(e) => actualizarItem(idx, "name", e.target.value)}
-                          placeholder="Nombre"
-                          className="flex-1 rounded bg-[#1a1a1a] px-2 py-1 text-xs text-white"
-                        />
-                        <input
-                          type="number"
-                          value={item.price}
-                          onChange={(e) => actualizarItem(idx, "price", parseInt(e.target.value) || 0)}
-                          placeholder="$"
-                          className="w-20 rounded bg-[#1a1a1a] px-2 py-1 text-right text-xs text-white"
-                        />
-                        <button
-                          onClick={() => eliminarItem(idx)}
-                          className="flex size-7 items-center justify-center rounded-full bg-red-500/20 text-red-400"
+                      <div key={idx} className="rounded-lg bg-[#1a1a1a] p-2 space-y-2">
+                        <select
+                          value={item.productId || ""}
+                          onChange={(e) => actualizarItem(idx, e.target.value)}
+                          className="w-full rounded bg-[#0a0a0a] px-2 py-1.5 text-xs text-white ring-1 ring-[#333]"
                         >
-                          <Trash2 className="size-3" />
-                        </button>
+                          <option value="">-- Seleccionar producto --</option>
+                          {productosDisponibles.map((prod) => (
+                            <option key={prod.id} value={prod.id}>
+                              {prod.name} - {formatPrice(prod.price)}
+                            </option>
+                          ))}
+                        </select>
+                        
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => cambiarCantidad(idx, -1)}
+                              disabled={item.quantity <= 1}
+                              className="flex size-8 items-center justify-center rounded-full bg-[#ff751f] text-black disabled:opacity-30"
+                            >
+                              <Minus className="size-4" />
+                            </button>
+                            <span className="w-8 text-center text-sm font-bold text-white">{item.quantity}</span>
+                            <button
+                              onClick={() => cambiarCantidad(idx, 1)}
+                              className="flex size-8 items-center justify-center rounded-full bg-[#ff751f] text-black"
+                            >
+                              <Plus className="size-4" />
+                            </button>
+                          </div>
+                          
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-[#ff751f]">
+                              {formatPrice(item.price * item.quantity)}
+                            </span>
+                            <button
+                              onClick={() => eliminarItem(idx)}
+                              className="flex size-7 items-center justify-center rounded-full bg-red-500/20 text-red-400"
+                            >
+                              <Trash2 className="size-3" />
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     ))}
+                    
                     <button
                       onClick={agregarItem}
-                      className="flex w-full items-center justify-center gap-1 rounded-lg bg-[#1a1a1a] py-1.5 text-xs font-bold text-[#ff751f]"
+                      className="flex w-full items-center justify-center gap-1 rounded-lg bg-[#1a1a1a] py-2 text-xs font-bold text-[#ff751f] ring-1 ring-[#333]"
                     >
                       <Plus className="size-3" /> Agregar item
                     </button>
+                    
                     <div className="flex gap-2 pt-1">
                       <button
-                        onClick={() => { setEditandoId(null); setItemsEdit([]) }}
-                        className="flex-1 rounded-full bg-[#1a1a1a] py-1.5 text-xs font-bold text-gray-300"
+                        onClick={() => { setEditandoId(null); setPedidoEditando(null); setItemsEdit([]) }}
+                        className="flex-1 rounded-full bg-[#1a1a1a] py-2 text-xs font-bold text-gray-300"
                       >
                         Cancelar
                       </button>
                       <button
                         onClick={guardarEdicion}
-                        className="flex flex-1 items-center justify-center gap-1 rounded-full bg-[#ff751f] py-1.5 text-xs font-bold text-black"
+                        className="flex flex-1 items-center justify-center gap-1 rounded-full bg-[#ff751f] py-2 text-xs font-bold text-black"
                       >
                         <Check className="size-3" /> Guardar
                       </button>
@@ -315,34 +468,24 @@ export default function PedidosPage() {
                 {/* ACCIONES */}
                 <div className="flex items-center justify-between">
                   <div className="flex gap-2">
-                    {/* BOTÓN ENTREGADO */}
                     <button
                       onClick={() => toggleEstado(pedido.id, "entregado")}
                       className={`flex size-10 items-center justify-center rounded-full transition-all ${
-                        pedido.entregado
-                          ? "bg-green-500 text-white"
-                          : "bg-red-500 text-white hover:bg-red-600"
+                        pedido.entregado ? "bg-green-500 text-white" : "bg-red-500 text-white hover:bg-red-600"
                       }`}
-                      title={pedido.entregado ? "Entregado" : "Marcar entregado"}
                     >
                       <HandCoins className="size-5" />
                     </button>
-
-                    {/* BOTÓN PAGADO */}
                     <button
                       onClick={() => toggleEstado(pedido.id, "pagado")}
                       className={`flex size-10 items-center justify-center rounded-full transition-all ${
-                        pedido.pagado
-                          ? "bg-green-500 text-white"
-                          : "bg-red-500 text-white hover:bg-red-600"
+                        pedido.pagado ? "bg-green-500 text-white" : "bg-red-500 text-white hover:bg-red-600"
                       }`}
-                      title={pedido.pagado ? "Pagado" : "Marcar pagado"}
                     >
                       <Banknote className="size-5" />
                     </button>
                   </div>
 
-                  {/* BOTÓN EDITAR */}
                   {!isEditing && (
                     <button
                       onClick={() => empezarEditar(pedido)}
