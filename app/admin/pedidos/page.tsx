@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
-import { HandCoins, Banknote, Edit3, Plus, Trash2, Check, Minus, MessageCircle, Truck } from "lucide-react"
+import { HandCoins, Banknote, Edit3, Plus, Trash2, Check, Minus, Send, Bike } from "lucide-react"
 import { formatPrice, fetchProductsFromGoogleSheet, MENU_CSV_URL, type Product } from "@/lib/menu-data"
 
 type PedidoItem = {
@@ -60,6 +60,32 @@ export default function PedidosPage() {
   const [reenviadoDelivery, setReenviadoDelivery] = useState<string | null>(null)
   const [ultimoPedidoId, setUltimoPedidoId] = useState<string | null>(null)
 
+  const [audioDesbloqueado, setAudioDesbloqueado] = useState(false)
+
+  // Desbloquear audio con cualquier interacción del usuario
+  useEffect(() => {
+    function desbloquearAudio() {
+      if (!audioDesbloqueado) {
+        const audio = new Audio("/sounds/notificacion.mp3")
+        audio.volume = 0.01  // Volumen casi cero para no molestar
+        audio.play()
+          .then(() => {
+            setAudioDesbloqueado(true)
+            audio.pause()
+          })
+          .catch(e => console.log("Audio aún bloqueado"))
+      }
+    }
+    
+    document.addEventListener("click", desbloquearAudio, { once: true })
+    document.addEventListener("touchstart", desbloquearAudio, { once: true })
+    
+    return () => {
+      document.removeEventListener("click", desbloquearAudio)
+      document.removeEventListener("touchstart", desbloquearAudio)
+    }
+  }, [audioDesbloqueado])
+  
   useEffect(() => {
     async function loadProducts() {
       try {
@@ -80,13 +106,17 @@ export default function PedidosPage() {
       const nuevosPedidos: Pedido[] = data.pedidos || []
       
       // Detectar pedido nuevo de la web
-      if (ultimoPedidoId && nuevosPedidos.length > 0) {
-        const pedidoMasReciente = nuevosPedidos[0]
-        if (pedidoMasReciente.id !== ultimoPedidoId && pedidoMasReciente.origen === "web") {
+      if (pedidoMasReciente.id !== ultimoPedidoId && pedidoMasReciente.origen === "web") {
+        const [enviosNuevos, setEnviosNuevos] = useState(false)
+        if (clasificar(pedidoMasReciente) === "envios") {
+            setEnviosNuevos(true)
+            setTimeout(() => setEnviosNuevos(false), 5000)  // Titilar por 5 segundos
+          }
+        if (audioDesbloqueado) {
           try {
             const audio = new Audio("/sounds/notificacion.mp3")
             audio.volume = 0.7
-            audio.play().catch(e => console.log("No se pudo reproducir sonido:", e))
+            audio.play().catch(e => console.log("No se pudo reproducir:", e))
           } catch (e) {
             console.log("Error con sonido:", e)
           }
@@ -188,7 +218,8 @@ export default function PedidosPage() {
 
   const pedidosFiltrados = pedidosPorUbicacion.filter((p) => {
     if (estadoFiltro === "todos") return true
-    return !p.pagado
+    // "activos" = NO están entregado Y pagado (ambas cosas)
+    return !(p.entregado && p.pagado)
   })
 
   const calcularTotales = (lista: Pedido[]) => ({
@@ -203,16 +234,16 @@ export default function PedidosPage() {
 
   const contadores = {
     todos: estadoFiltro === "activos" 
-      ? pedidosHoy.filter(p => !p.pagado).length 
+      ? pedidosHoy.filter(p => !(p.entregado && p.pagado)).length 
       : pedidosHoy.length,
     mostrador: estadoFiltro === "activos"
-      ? pedidosHoy.filter(p => clasificar(p) === "mostrador" && !p.pagado).length
+      ? pedidosHoy.filter(p => clasificar(p) === "mostrador" && !(p.entregado && p.pagado)).length
       : pedidosHoy.filter(p => clasificar(p) === "mostrador").length,
     mesas: estadoFiltro === "activos"
-      ? pedidosHoy.filter(p => clasificar(p) === "mesas" && !p.pagado).length
+      ? pedidosHoy.filter(p => clasificar(p) === "mesas" && !(p.entregado && p.pagado)).length
       : pedidosHoy.filter(p => clasificar(p) === "mesas").length,
     envios: estadoFiltro === "activos"
-      ? pedidosHoy.filter(p => clasificar(p) === "envios" && !p.pagado).length
+      ? pedidosHoy.filter(p => clasificar(p) === "envios" && !(p.entregado && p.pagado)).length
       : pedidosHoy.filter(p => clasificar(p) === "envios").length,
   }
 
@@ -379,17 +410,39 @@ export default function PedidosPage() {
           { id: "mostrador" as Filtro, label: "Mostrador" },
           { id: "mesas" as Filtro, label: "Mesas" },
           { id: "envios" as Filtro, label: "Envíos" },
-        ].map((f) => (
-          <button
-            key={f.id}
-            onClick={() => setFiltro(f.id)}
-            className={`shrink-0 rounded-full px-4 py-2 text-xs font-bold transition-all ${
-              filtro === f.id ? "bg-[#ff751f] text-black" : "bg-[#1a1a1a] text-gray-300"
-            }`}
-          >
-            {f.label} ({contadores[f.id]})
-          </button>
-        ))}
+        ].map((f) => {
+          // Lógica especial para el botón de Envíos
+          if (f.id === "envios") {
+            return (
+              <button
+                key={f.id}
+                onClick={() => setFiltro(f.id)}
+                className={`shrink-0 rounded-full px-4 py-2 text-xs font-bold transition-all ${
+                  filtro === f.id 
+                    ? "bg-[#ff751f] text-black" 
+                    : enviosNuevos 
+                    ? "bg-red-500 text-white animate-pulse"
+                    : "bg-[#1a1a1a] text-gray-300"
+                }`}
+              >
+                {f.label} ({contadores[f.id]})
+              </button>
+            )
+          }
+          
+          // Resto de botones (Todos, Mostrador, Mesas)
+          return (
+            <button
+              key={f.id}
+              onClick={() => setFiltro(f.id)}
+              className={`shrink-0 rounded-full px-4 py-2 text-xs font-bold transition-all ${
+                filtro === f.id ? "bg-[#ff751f] text-black" : "bg-[#1a1a1a] text-gray-300"
+              }`}
+            >
+              {f.label} ({contadores[f.id]})
+            </button>
+          )
+        })}
       </div>
 
       {/* LISTA DE PEDIDOS */}
@@ -565,6 +618,7 @@ export default function PedidosPage() {
                     >
                       <Banknote className="size-5" />
                     </button>
+                    {/* REENVIAR AL CLIENTE */}
                     {pedido.origen === "web" && (
                       <button
                         onClick={() => reenviarCliente(pedido.id)}
@@ -573,10 +627,12 @@ export default function PedidosPage() {
                         }`}
                         title="Reenviar confirmación al cliente"
                       >
-                        <MessageCircle className="size-5" />
+                        <Send className="size-5" />  {/* ← Cambiado de MessageCircle */}
                       </button>
                     )}
-                    {clasificar(pedido) === "envios" && pedido.origen === "web" && (
+
+                    {/* REENVIAR AL DELIVERY */}
+                    {clasificar(pedido) === "envios" && pedido.ubicacion !== "Retiro" && pedido.origen === "web" && (
                       <button
                         onClick={() => reenviarDelivery(pedido.id)}
                         className={`flex size-10 items-center justify-center rounded-full transition-all ${
@@ -584,12 +640,12 @@ export default function PedidosPage() {
                         }`}
                         title="Reenviar al delivery"
                       >
-                        <Truck className="size-5" />
+                        <Bike className="size-5" />  {/* ← Cambiado de Truck */}
                       </button>
                     )}
                   </div>
 
-                  {!isEditing && (
+                  {!isEditing && !pedido.pagado && (
                     <button
                       onClick={() => empezarEditar(pedido)}
                       className="flex items-center gap-1 rounded-full bg-[#1a1a1a] px-3 py-1.5 text-xs font-bold text-gray-300 hover:bg-[#2a2a2a]"

@@ -92,9 +92,12 @@ export default function NuevoPedidoPage() {
       if (result.success) {
         setSuccess(true)
         setCart([])
-        setTimeout(() => setSuccess(false), 3000)
-      } else {
-        alert("Error al guardar: " + (result.error || "Desconocido"))
+        
+        // Forzar recarga de pedidos en el dashboard
+        // (si estás en la misma pestaña, redirigir a pedidos)
+        setTimeout(() => {
+          router.push("/admin/pedidos?refresh=" + Date.now())
+        }, 1500)
       }
     } catch (e) {
       console.error(e)

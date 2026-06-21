@@ -61,11 +61,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </button>
 
           <button
-            onClick={() => router.push("/")}
-            className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-gray-300 transition-colors hover:bg-[#1a1a1a]"
+            onClick={() => {
+              setFiltro("envios")  // ← Cambiar filtro a envíos
+              router.push("/admin/pedidos")
+            }}
+            className="flex flex-col items-center gap-1 rounded-xl py-2 text-gray-400 transition-colors hover:text-white"
           >
-            <Home className="size-5" />
-            <span className="font-bold">Ver App Pública</span>
+            <Bike className="size-5" />  {/* ← Cambiado de Home */}
+            <span className="text-[10px] font-bold">Envíos</span>
           </button>
         </nav>
 
