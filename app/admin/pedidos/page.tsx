@@ -205,21 +205,28 @@ const cargarPedidos = useCallback(async () => {
     return "mesas"
   }
 
-  const pedidosHoy = pedidos.filter((p) => {
-    try {
-      const match = p.id.match(/^QMH-(\d+)$/)
-      if (!match) return true
-      
-      const timestamp = parseInt(match[1])
-      const fechaPedido = new Date(timestamp)
-      const ahora = new Date()
-      const horasDeDiferencia = (ahora.getTime() - fechaPedido.getTime()) / (1000 * 60 * 60)
-      
-      return horasDeDiferencia >= 0 && horasDeDiferencia <= 24
-    } catch (e) {
-      return true
-    }
-  })
+const pedidosHoy = pedidos.filter((p) => {
+  try {
+    const match = p.id.match(/^QMH-(\d+)$/)
+    if (!match) return true
+    
+    const timestamp = parseInt(match[1])
+    const fechaPedido = new Date(timestamp)
+    const ahora = new Date()
+    
+    // Comparar solo la fecha (día/mes/año) en hora Argentina
+    const fechaPedidoARG = new Date(fechaPedido.toLocaleString("en-US", { timeZone: "America/Argentina/Buenos_Aires" }))
+    const ahoraARG = new Date(ahora.toLocaleString("en-US", { timeZone: "America/Argentina/Buenos_Aires" }))
+    
+    return (
+      fechaPedidoARG.getFullYear() === ahoraARG.getFullYear() &&
+      fechaPedidoARG.getMonth() === ahoraARG.getMonth() &&
+      fechaPedidoARG.getDate() === ahoraARG.getDate()
+    )
+  } catch (e) {
+    return true
+  }
+})
 
   const pedidosPorUbicacion = pedidosHoy.filter((p) => {
     if (filtro === "todos") return true
