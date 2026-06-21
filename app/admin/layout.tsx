@@ -2,7 +2,7 @@
 
 import { useEffect } from "react"
 import { useRouter, usePathname } from "next/navigation"
-import { ClipboardList, PlusCircle, Bike, LogOut } from "lucide-react"
+import { ClipboardList, PlusCircle, Bike, Home, LogOut } from "lucide-react"
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
