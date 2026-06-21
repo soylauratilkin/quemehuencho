@@ -98,43 +98,52 @@ export default function PedidosPage() {
     loadProducts()
   }, [])
 
-  const cargarPedidos = useCallback(async () => {
-    setIsLoading(true)
-    try {
-      const res = await fetch("/api/admin/pedidos")
-      const data = await res.json()
-      const nuevosPedidos: Pedido[] = data.pedidos || []
+const cargarPedidos = useCallback(async () => {
+  setIsLoading(true)
+  try {
+    const res = await fetch("/api/admin/pedidos")
+    const data = await res.json()
+    const nuevosPedidos: Pedido[] = data.pedidos || []
+    
+    // Detectar pedido nuevo (cualquier origen)
+    if (ultimoPedidoId && nuevosPedidos.length > 0) {
+      const pedidoMasReciente = nuevosPedidos[0]
       
-      // Detectar pedido nuevo de la web
-      if (pedidoMasReciente.id !== ultimoPedidoId && pedidoMasReciente.origen === "web") {
-
-        if (audioDesbloqueado) {
-          try {
-            const audio = new Audio("/sounds/notificacion.mp3")
-            audio.volume = 0.7
-            audio.play().catch(e => console.log("No se pudo reproducir:", e))
-          } catch (e) {
-            console.log("Error con sonido:", e)
+      // Si es un pedido nuevo diferente al último conocido
+      if (pedidoMasReciente.id !== ultimoPedidoId) {
+        // Solo sonido para pedidos web
+        if (pedidoMasReciente.origen === "web") {
+          if (audioDesbloqueado) {
+            try {
+              const audio = new Audio("/sounds/notificacion.mp3")
+              audio.volume = 0.7
+              audio.play().catch(e => console.log("No se pudo reproducir sonido:", e))
+            } catch (e) {
+              console.log("Error con sonido:", e)
+            }
+          }
+          
+          // Si es envío, titilar botón
+          if (clasificar(pedidoMasReciente) === "envios") {
+            setEnviosNuevos(true)
+            setTimeout(() => setEnviosNuevos(false), 5000)
           }
         }
-          // ← AGREGAR ESTO:
-        if (clasificar(pedidoMasReciente) === "envios") {
-          setEnviosNuevos(true)
-          setTimeout(() => setEnviosNuevos(false), 5000)
-        }
       }
-      
-      if (nuevosPedidos.length > 0) {
-        setUltimoPedidoId(nuevosPedidos[0].id)
-      }
-      
-      setPedidos(nuevosPedidos)
-    } catch (e) {
-      console.error(e)
-    } finally {
-      setIsLoading(false)
     }
-  }, [ultimoPedidoId])
+    
+    // Siempre actualizar el último ID conocido
+    if (nuevosPedidos.length > 0) {
+      setUltimoPedidoId(nuevosPedidos[0].id)
+    }
+    
+    setPedidos(nuevosPedidos)
+  } catch (e) {
+    console.error(e)
+  } finally {
+    setIsLoading(false)
+  }
+}, [ultimoPedidoId, audioDesbloqueado])
 
   useEffect(() => {
     cargarPedidos()

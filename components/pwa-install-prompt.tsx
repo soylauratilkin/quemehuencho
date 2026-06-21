@@ -6,8 +6,23 @@ import { Download, X } from "lucide-react"
 export function PWAInstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
   const [showPrompt, setShowPrompt] = useState(false)
+  const [isInstalled, setIsInstalled] = useState(false)
 
   useEffect(() => {
+    // Verificar si ya está instalada
+    const yaInstalada = localStorage.getItem("qh_pwa_installed") === "true"
+    if (yaInstalada) {
+      setIsInstalled(true)
+      return
+    }
+
+    // Verificar si ya está en modo standalone (instalada)
+    if (window.matchMedia("(display-mode: standalone)").matches) {
+      setIsInstalled(true)
+      localStorage.setItem("qh_pwa_installed", "true")
+      return
+    }
+
     const handler = (e: any) => {
       e.preventDefault()
       setDeferredPrompt(e)
@@ -31,17 +46,25 @@ export function PWAInstallPrompt() {
     
     if (outcome === "accepted") {
       setShowPrompt(false)
+      setIsInstalled(true)
+      localStorage.setItem("qh_pwa_installed", "true")
     }
     
     setDeferredPrompt(null)
   }
 
-  if (!showPrompt) return null
+  function handleClose() {
+    setShowPrompt(false)
+    // No guardar en localStorage, así puede aparecer otra vez más tarde
+  }
+
+  // No mostrar si ya está instalada o si no hay prompt
+  if (isInstalled || !showPrompt) return null
 
   return (
     <div className="fixed bottom-20 left-4 right-4 z-50 rounded-2xl bg-[#ff751f] p-4 shadow-2xl md:bottom-4 md:left-auto md:right-4 md:w-80">
       <button
-        onClick={() => setShowPrompt(false)}
+        onClick={handleClose}
         className="absolute right-2 top-2 flex size-6 items-center justify-center rounded-full bg-black/20 text-white"
       >
         <X className="size-4" />
