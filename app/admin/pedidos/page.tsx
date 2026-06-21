@@ -59,7 +59,7 @@ export default function PedidosPage() {
   const [reenviadoCliente, setReenviadoCliente] = useState<string | null>(null)
   const [reenviadoDelivery, setReenviadoDelivery] = useState<string | null>(null)
   const [ultimoPedidoId, setUltimoPedidoId] = useState<string | null>(null)
-
+  const [enviosNuevos, setEnviosNuevos] = useState(false)
   const [audioDesbloqueado, setAudioDesbloqueado] = useState(false)
 
   // Desbloquear audio con cualquier interacción del usuario
@@ -107,11 +107,7 @@ export default function PedidosPage() {
       
       // Detectar pedido nuevo de la web
       if (pedidoMasReciente.id !== ultimoPedidoId && pedidoMasReciente.origen === "web") {
-        const [enviosNuevos, setEnviosNuevos] = useState(false)
-        if (clasificar(pedidoMasReciente) === "envios") {
-            setEnviosNuevos(true)
-            setTimeout(() => setEnviosNuevos(false), 5000)  // Titilar por 5 segundos
-          }
+
         if (audioDesbloqueado) {
           try {
             const audio = new Audio("/sounds/notificacion.mp3")
@@ -120,6 +116,11 @@ export default function PedidosPage() {
           } catch (e) {
             console.log("Error con sonido:", e)
           }
+        }
+          // ← AGREGAR ESTO:
+        if (clasificar(pedidoMasReciente) === "envios") {
+          setEnviosNuevos(true)
+          setTimeout(() => setEnviosNuevos(false), 5000)
         }
       }
       
