@@ -3,7 +3,6 @@
 import { useEffect, useState, useCallback } from "react"
 import { HandCoins, Banknote, Edit3, Plus, Trash2, Check, Minus, Send, Bike } from "lucide-react"
 import { formatPrice, fetchProductsFromGoogleSheet, MENU_CSV_URL, type Product } from "@/lib/menu-data"
-import { useSearchParams } from "next/navigation"
 
 type PedidoItem = {
   productId?: string
@@ -44,17 +43,16 @@ export default function PedidosPage() {
   const [enviosNuevos, setEnviosNuevos] = useState(false)
   const [audioDesbloqueado, setAudioDesbloqueado] = useState(false)
 
-  // ← ESTO SÍ VA ACÁ (dentro del componente)
-  const searchParams = useSearchParams()
 
   useEffect(() => {
-    const filtroParam = searchParams.get("filtro")
-    if (filtroParam === "envios" || filtroParam === "mostrador" || filtroParam === "mesas") {
-      setFiltro(filtroParam as Filtro)
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search)
+      const filtroParam = params.get("filtro")
+      if (filtroParam === "envios" || filtroParam === "mostrador" || filtroParam === "mesas") {
+        setFiltro(filtroParam as Filtro)
+      }
     }
-  }, [searchParams])
-
-  // ... resto del código ...
+  }, [])
 
   // Desbloquear audio con cualquier interacción del usuario
   useEffect(() => {
