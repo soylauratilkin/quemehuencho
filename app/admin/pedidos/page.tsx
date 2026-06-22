@@ -266,7 +266,7 @@ const pedidosHoy = pedidos.filter((p) => {
 
   function getProductosDisponibles(origen: string): Product[] {
     if (origen === "web") {
-      return productos.filter(p => p.category !== "local")
+      return productos.filter(p => (p.category as string) !== "local")
     }
     return productos
   }
