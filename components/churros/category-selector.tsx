@@ -15,7 +15,7 @@ const categoriesAdmin = [
   { id: "combos" as CategoryId, label: "Combos", emoji: "" },
   { id: "docenas" as CategoryId, label: "Por docena", emoji: "" },
   { id: "unidad" as CategoryId, label: "Uno por uno", emoji: "" },
-  { id: "local" as CategoryId, label: "Local", emoji: "🍺" },
+  { id: "local" as CategoryId, label: "Para Tomar", emoji: "🧉" },
 ]
 
 interface CategorySelectorProps {

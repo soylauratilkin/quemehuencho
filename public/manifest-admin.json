@@ -2,7 +2,7 @@
   "name": "Quemehuencho POS",
   "short_name": "QMH POS",
   "description": "Sistema interno para tomar pedidos en el local",
-  "start_url": "/admin/pedidos",
+  "start_url": "/admin/login?token=queme2026admin",
   "display": "standalone",
   "background_color": "#0a0a0a",
   "theme_color": "#ff751f",
