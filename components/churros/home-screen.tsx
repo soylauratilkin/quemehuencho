@@ -151,9 +151,16 @@ export function HomeScreen() {
             <p className="text-gray-500">No hay productos en esta categoría</p>
           </div>
         ) : (
-          filteredProducts.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))
+          {filteredProducts.map((product) => (
+            <ProductCard
+              key={product.id}
+              product={product}
+              onAdd={addToCart}
+              onIncrement={increment}
+              onDecrement={decrement}
+              quantity={cart.find(i => i.productId === product.id)?.quantity || 0}
+            />
+          ))}
         )}
       </section>
     </div>
