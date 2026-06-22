@@ -2,24 +2,15 @@
 
 import { useEffect, useState } from "react"
 import { Download, X } from "lucide-react"
-import { usePathname } from "next/navigation"
 
-export function PWAInstallPrompt() {
+export function AdminInstallButton() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
-  const [showPrompt, setShowPrompt] = useState(false)
+  const [showButton, setShowButton] = useState(false)
   const [isInstalled, setIsInstalled] = useState(false)
-  const pathname = usePathname()
 
   useEffect(() => {
-    // SOLO mostrar en rutas de cliente (NO en /admin)
-    const isAdmin = pathname.startsWith("/admin")
-    
-    if (isAdmin) {
-      return // No mostrar en admin
-    }
-
     // Verificar si ya está instalada
-    const storageKey = "qh_pwa_cliente_installed"
+    const storageKey = "qh_pwa_admin_installed"
     const yaInstalada = localStorage.getItem(storageKey) === "true"
     
     if (yaInstalada) {
@@ -27,7 +18,6 @@ export function PWAInstallPrompt() {
       return
     }
 
-    // Verificar si ya está en modo standalone
     if (window.matchMedia("(display-mode: standalone)").matches) {
       setIsInstalled(true)
       localStorage.setItem(storageKey, "true")
@@ -37,16 +27,13 @@ export function PWAInstallPrompt() {
     const handler = (e: any) => {
       e.preventDefault()
       setDeferredPrompt(e)
-      
-      setTimeout(() => {
-        setShowPrompt(true)
-      }, 3000)
+      setShowButton(true)
     }
 
     window.addEventListener("beforeinstallprompt", handler)
 
     return () => window.removeEventListener("beforeinstallprompt", handler)
-  }, [pathname])
+  }, [])
 
   async function handleInstall() {
     if (!deferredPrompt) return
@@ -55,19 +42,19 @@ export function PWAInstallPrompt() {
     const { outcome } = await deferredPrompt.userChoice
     
     if (outcome === "accepted") {
-      setShowPrompt(false)
+      setShowButton(false)
       setIsInstalled(true)
-      localStorage.setItem("qh_pwa_cliente_installed", "true")
+      localStorage.setItem("qh_pwa_admin_installed", "true")
     }
     
     setDeferredPrompt(null)
   }
 
   function handleClose() {
-    setShowPrompt(false)
+    setShowButton(false)
   }
 
-  if (isInstalled || !showPrompt) return null
+  if (isInstalled || !showButton) return null
 
   return (
     <div className="fixed bottom-20 left-4 right-4 z-50 rounded-2xl bg-[#ff751f] p-4 shadow-2xl md:bottom-4 md:left-auto md:right-4 md:w-80">
@@ -83,12 +70,12 @@ export function PWAInstallPrompt() {
           <Download className="size-6 text-[#ff751f]" />
         </div>
         <div className="flex-1">
-          <p className="text-sm font-bold text-black">Instalar Quemehuencho</p>
-          <p className="text-xs text-black/70">Acceso rápido desde tu inicio</p>
+          <p className="text-sm font-bold text-black">Instalar QMH POS</p>
+          <p className="text-xs text-black/70">App admin en tu inicio</p>
         </div>
         <button
           onClick={handleInstall}
-          className="rounded-full bg-black px-4 py-2 text-xs font-bold text-[#ff51f]"
+          className="rounded-full bg-black px-4 py-2 text-xs font-bold text-[#ff751f]"
         >
           Instalar
         </button>

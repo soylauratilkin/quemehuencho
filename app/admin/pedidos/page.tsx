@@ -159,6 +159,19 @@ const cargarPedidos = useCallback(async () => {
     cargarPedidos()
   }
 
+  async function borrarPedido(id: string) {
+  if (!confirm("¿Estás seguro de borrar este pedido? Esta acción no se puede deshacer.")) {
+    return
+  }
+  
+  await fetch("/api/admin/pedidos", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "borrarPedido", id })
+  })
+  cargarPedidos()
+}
+
   async function reenviarCliente(id: string) {
     try {
       const res = await fetch("/api/admin/pedidos", {
@@ -636,61 +649,68 @@ const pedidosHoy = pedidos.filter((p) => {
                   </div>
                 )}
 
-                {/* ACCIONES */}
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <div className="flex gap-2 flex-wrap">
-                    <button
-                      onClick={() => toggleEstado(pedido.id, "entregado")}
-                      className={`flex size-10 items-center justify-center rounded-full transition-all ${
-                        pedido.entregado ? "bg-green-500 text-white" : "bg-red-500 text-white hover:bg-red-600"
-                      }`}
-                    >
-                      <HandCoins className="size-5" />
-                    </button>
-                    <button
-                      onClick={() => toggleEstado(pedido.id, "pagado")}
-                      className={`flex size-10 items-center justify-center rounded-full transition-all ${
-                        pedido.pagado ? "bg-green-500 text-white" : "bg-red-500 text-white hover:bg-red-600"
-                      }`}
-                    >
-                      <Banknote className="size-5" />
-                    </button>
-                    {/* REENVIAR AL CLIENTE */}
-                    {pedido.origen === "web" && (
-                      <button
-                        onClick={() => reenviarCliente(pedido.id)}
-                        className={`flex size-10 items-center justify-center rounded-full transition-all ${
-                          reenviadoCliente === pedido.id ? "bg-green-500 text-white" : "bg-red-500 text-white hover:bg-red-600"
-                        }`}
-                        title="Reenviar confirmación al cliente"
-                      >
-                        <Send className="size-5" />  {/* ← Cambiado de MessageCircle */}
-                      </button>
-                    )}
+{/* ACCIONES */}
+<div className="flex items-center justify-between flex-wrap gap-2">
+  <div className="flex gap-2 flex-wrap">
+    <button
+      onClick={() => toggleEstado(pedido.id, "entregado")}
+      className={`flex size-10 items-center justify-center rounded-full transition-all ${
+        pedido.entregado ? "bg-green-500 text-white" : "bg-red-500 text-white hover:bg-red-600"
+      }`}
+    >
+      <HandCoins className="size-5" />
+    </button>
+    <button
+      onClick={() => toggleEstado(pedido.id, "pagado")}
+      className={`flex size-10 items-center justify-center rounded-full transition-all ${
+        pedido.pagado ? "bg-green-500 text-white" : "bg-red-500 text-white hover:bg-red-600"
+      }`}
+    >
+      <Banknote className="size-5" />
+    </button>
+    {pedido.origen === "web" && (
+      <button
+        onClick={() => reenviarCliente(pedido.id)}
+        className={`flex size-10 items-center justify-center rounded-full transition-all ${
+          reenviadoCliente === pedido.id ? "bg-green-500 text-white" : "bg-red-500 text-white hover:bg-red-600"
+        }`}
+        title="Reenviar confirmación al cliente"
+      >
+        <Send className="size-5" />
+      </button>
+    )}
+    {clasificar(pedido) === "envios" && pedido.ubicacion !== "Retiro" && pedido.origen === "web" && (
+      <button
+        onClick={() => reenviarDelivery(pedido.id)}
+        className={`flex size-10 items-center justify-center rounded-full transition-all ${
+          reenviadoDelivery === pedido.id ? "bg-green-500 text-white" : "bg-red-500 text-white hover:bg-red-600"
+        }`}
+        title="Reenviar al delivery"
+      >
+        <Bike className="size-5" />
+      </button>
+    )}
+  </div>
 
-                    {/* REENVIAR AL DELIVERY */}
-                    {clasificar(pedido) === "envios" && pedido.ubicacion !== "Retiro" && pedido.origen === "web" && (
-                      <button
-                        onClick={() => reenviarDelivery(pedido.id)}
-                        className={`flex size-10 items-center justify-center rounded-full transition-all ${
-                          reenviadoDelivery === pedido.id ? "bg-green-500 text-white" : "bg-red-500 text-white hover:bg-red-600"
-                        }`}
-                        title="Reenviar al delivery"
-                      >
-                        <Bike className="size-5" />  {/* ← Cambiado de Truck */}
-                      </button>
-                    )}
-                  </div>
-
-                  {!isEditing && !pedido.pagado && (
-                    <button
-                      onClick={() => empezarEditar(pedido)}
-                      className="flex items-center gap-1 rounded-full bg-[#1a1a1a] px-3 py-1.5 text-xs font-bold text-gray-300 hover:bg-[#2a2a2a]"
-                    >
-                      <Edit3 className="size-3" /> Editar
-                    </button>
-                  )}
-                </div>
+  {!isEditing && (
+    <div className="flex gap-2">
+      <button
+        onClick={() => empezarEditar(pedido)}
+        className="flex items-center gap-1 rounded-full bg-[#1a1a1a] px-3 py-1.5 text-xs font-bold text-gray-300 hover:bg-[#2a2a2a]"
+      >
+        <Edit3 className="size-3" /> Editar
+      </button>
+      
+      {/* ← BOTÓN BORRAR AGREGADO ACÁ */}
+      <button
+        onClick={() => borrarPedido(pedido.id)}
+        className="flex items-center gap-1 rounded-full bg-red-500/20 px-3 py-1.5 text-xs font-bold text-red-400 hover:bg-red-500/30"
+      >
+        <Trash2 className="size-3" /> Borrar
+      </button>
+    </div>
+  )}
+</div>
               </div>
             )
           })}

@@ -3,7 +3,7 @@
 import { useEffect } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { ClipboardList, PlusCircle, Bike, Home, LogOut } from "lucide-react"
-import { PWAInstallPrompt } from "@/components/pwa-install-prompt"
+import { AdminInstallButton } from "@/components/admin-install-button"
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
@@ -134,7 +134,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
         </nav>
       </div>
-      <PWAInstallPrompt />
+      <AdminInstallButton />  {/* Solo admin */}
     </div>
   )
 }
