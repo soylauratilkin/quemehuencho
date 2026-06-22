@@ -5,17 +5,6 @@ import { useRouter, usePathname } from "next/navigation"
 import { ClipboardList, PlusCircle, Bike, Home, LogOut } from "lucide-react"
 import { PWAInstallPrompt } from "@/components/pwa-install-prompt"
 
-export const metadata = {
-  manifest: "/manifest-admin.json",
-  themeColor: "#ff751f",
-  appleWebApp: {
-    title: "QMH POS",
-  },
-  icons: {
-    apple: "/images/logo.png",
-  },
-}
-
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
@@ -39,6 +28,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="min-h-dvh bg-[#0a0a0a]">
+      {/* Meta tags PWA admin - van dentro del div */}
+      <link rel="manifest" href="/manifest-admin.json" />
+      <meta name="theme-color" content="#ff751f" />
+      <meta name="apple-mobile-web-app-capable" content="yes" />
+      <meta name="apple-mobile-web-app-title" content="QMH POS" />
+      <link rel="apple-touch-icon" href="/images/logo.png" />
       {/* ========================================= */}
       {/* SIDEBAR - SOLO EN DESKTOP                 */}
       {/* ========================================= */}
