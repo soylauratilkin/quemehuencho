@@ -22,6 +22,8 @@ type Pedido = {
   origen: string
   items?: PedidoItem[]
   rowNumber?: number
+  confirmadoCliente?: string
+  listoRetiro?: string
 }
 
 type Filtro = "todos" | "mostrador" | "mesas" | "envios"
@@ -207,6 +209,23 @@ const cargarPedidos = useCallback(async () => {
       console.error(e)
     }
   }
+
+  async function listoRetiro(id: string) {
+  try {
+    const res = await fetch("/api/admin/pedidos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "listoRetiro", id })
+    })
+    const data = await res.json()
+    if (data.success && data.link) {
+      window.open(data.link, "_blank")
+      cargarPedidos()
+    }
+  } catch (e) {
+    console.error(e)
+  }
+}
 
   function clasificar(p: Pedido): "mostrador" | "mesas" | "envios" {
     const ub = p.ubicacion?.toLowerCase() || ""
