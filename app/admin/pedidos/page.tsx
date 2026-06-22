@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react"
 import { HandCoins, Banknote, Edit3, Plus, Trash2, Check, Minus, Send, Bike } from "lucide-react"
 import { formatPrice, fetchProductsFromGoogleSheet, MENU_CSV_URL, type Product } from "@/lib/menu-data"
+import { useSearchParams } from "next/navigation"
 
 type PedidoItem = {
   productId?: string
@@ -27,26 +28,6 @@ type Pedido = {
 type Filtro = "todos" | "mostrador" | "mesas" | "envios"
 type EstadoFiltro = "activos" | "todos"
 
-function parseFecha(fechaStr: string): Date {
-  try {
-    const cleaned = fechaStr.replace(",", "")
-    const parts = cleaned.split(" ")
-    const dateParts = parts[0].split("/")
-    const timeParts = parts[1] ? parts[1].split(":") : ["00", "00", "00"]
-    
-    const day = parseInt(dateParts[0])
-    const month = parseInt(dateParts[1]) - 1
-    const year = parseInt(dateParts[2])
-    const hour = parseInt(timeParts[0] || "0")
-    const minute = parseInt(timeParts[1] || "0")
-    const second = parseInt(timeParts[2] || "0")
-    
-    return new Date(year, month, day, hour, minute, second)
-  } catch (e) {
-    return new Date()
-  }
-}
-
 export default function PedidosPage() {
   const [pedidos, setPedidos] = useState<Pedido[]>([])
   const [productos, setProductos] = useState<Product[]>([])
@@ -56,11 +37,24 @@ export default function PedidosPage() {
   const [editandoId, setEditandoId] = useState<string | null>(null)
   const [pedidoEditando, setPedidoEditando] = useState<Pedido | null>(null)
   const [itemsEdit, setItemsEdit] = useState<PedidoItem[]>([])
+  const [ubicacionEdit, setUbicacionEdit] = useState<string>("")
   const [reenviadoCliente, setReenviadoCliente] = useState<string | null>(null)
   const [reenviadoDelivery, setReenviadoDelivery] = useState<string | null>(null)
   const [ultimoPedidoId, setUltimoPedidoId] = useState<string | null>(null)
   const [enviosNuevos, setEnviosNuevos] = useState(false)
   const [audioDesbloqueado, setAudioDesbloqueado] = useState(false)
+
+  // ← ESTO SÍ VA ACÁ (dentro del componente)
+  const searchParams = useSearchParams()
+
+  useEffect(() => {
+    const filtroParam = searchParams.get("filtro")
+    if (filtroParam === "envios" || filtroParam === "mostrador" || filtroParam === "mesas") {
+      setFiltro(filtroParam as Filtro)
+    }
+  }, [searchParams])
+
+  // ... resto del código ...
 
   // Desbloquear audio con cualquier interacción del usuario
   useEffect(() => {
@@ -152,11 +146,18 @@ const cargarPedidos = useCallback(async () => {
   }, [cargarPedidos])
 
   async function toggleEstado(id: string, tipo: "entregado" | "pagado") {
-    await fetch("/api/admin/pedidos", {
+    const res = await fetch("/api/admin/pedidos", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: tipo, id })
     })
+    const data = await res.json()
+    
+    // Si es entregado y hay link de WhatsApp, abrirlo
+    if (tipo === "entregado" && data.linkWhatsapp) {
+      window.open(data.linkWhatsapp, "_blank")
+    }
+    
     cargarPedidos()
   }
 
@@ -293,6 +294,7 @@ const pedidosHoy = pedidos.filter((p) => {
     
     setItemsEdit(items)
     setPedidoEditando(pedido)
+    setUbicacionEdit(pedido.ubicacion)
     setEditandoId(pedido.id)
   }
 
@@ -356,12 +358,14 @@ const pedidosHoy = pedidos.filter((p) => {
       body: JSON.stringify({
         action: "editarPedido",
         id: editandoId,
-        items: itemsValidos
+        items: itemsValidos,
+        ubicacion: ubicacionEdit
       })
     })
     setEditandoId(null)
     setPedidoEditando(null)
     setItemsEdit([])
+    setUbicacionEdit("")
     cargarPedidos()
   }
 
@@ -544,6 +548,24 @@ const pedidosHoy = pedidos.filter((p) => {
                   </div>
                 ) : (
                   <div className="mb-3 space-y-2 rounded-xl bg-[#0a0a0a] p-2">
+
+                    {/* SELECTOR DE UBICACIÓN */}
+                    <div className="mb-2">
+                      <label className="text-[10px] font-bold uppercase text-gray-500 mb-1 block">Ubicación</label>
+                      <select
+                        value={ubicacionEdit}
+                        onChange={(e) => setUbicacionEdit(e.target.value)}
+                        className="w-full rounded-lg bg-[#0a0a0a] px-3 py-2 text-xs text-white ring-1 ring-[#333]"
+                      >
+                        <option value="Mostrador">Mostrador</option>
+                        <option value="Mesa 1">Mesa 1</option>
+                        <option value="Mesa 2">Mesa 2</option>
+                        <option value="Mesa 3">Mesa 3</option>
+                        <option value="Mesa 4">Mesa 4</option>
+                        <option value="Mesa 5">Mesa 5</option>
+                        <option value="Baúl">Baúl</option>
+                      </select>
+                    </div>
                     {itemsEdit.map((item, idx) => (
                       <div key={idx} className="rounded-lg bg-[#1a1a1a] p-2 space-y-2">
                         <select
@@ -601,7 +623,7 @@ const pedidosHoy = pedidos.filter((p) => {
                     
                     <div className="flex gap-2 pt-1">
                       <button
-                        onClick={() => { setEditandoId(null); setPedidoEditando(null); setItemsEdit([]) }}
+                        onClick={() => { setEditandoId(null); setPedidoEditando(null); setItemsEdit([]);setUbicacionEdit("") }}
                         className="flex-1 rounded-full bg-[#1a1a1a] py-2 text-xs font-bold text-gray-300"
                       >
                         Cancelar

@@ -3,6 +3,18 @@
 import { useEffect } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { ClipboardList, PlusCircle, Bike, Home, LogOut } from "lucide-react"
+import { PWAInstallPrompt } from "@/components/pwa-install-prompt"
+
+export const metadata = {
+  manifest: "/manifest-admin.json",
+  themeColor: "#ff751f",
+  appleWebApp: {
+    title: "QMH POS",
+  },
+  icons: {
+    apple: "/images/logo.png",
+  },
+}
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
@@ -61,14 +73,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </button>
 
           <button
-            onClick={() => {
-              setFiltro("envios")  // ← Cambiar filtro a envíos
-              router.push("/admin/pedidos")
-            }}
-            className="flex flex-col items-center gap-1 rounded-xl py-2 text-gray-400 transition-colors hover:text-white"
+            onClick={() => router.push("/admin/pedidos?filtro=envios")}
+            className="flex items-center gap-3 rounded-xl px-4 py-3 text-left text-gray-300 transition-colors hover:bg-[#1a1a1a]"
           >
-            <Bike className="size-5" />  {/* ← Cambiado de Home */}
-            <span className="text-[10px] font-bold">Envíos</span>
+            <Bike className="size-5" />
+            <span className="font-bold">Envíos</span>
           </button>
         </nav>
 
@@ -130,6 +139,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
         </nav>
       </div>
+      <PWAInstallPrompt />
     </div>
   )
 }
