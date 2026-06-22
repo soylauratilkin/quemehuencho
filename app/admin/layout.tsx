@@ -72,7 +72,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             className="flex items-center gap-3 rounded-xl px-4 py-3 text-left text-gray-300 transition-colors hover:bg-[#1a1a1a]"
           >
             <Bike className="size-5" />
-            <span className="font-bold">Envíos 🛵</span>
+            <span className="font-bold">Envíos</span>
           </button>
         </nav>
 
@@ -128,8 +128,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               onClick={() => router.push("/")}
               className="flex flex-col items-center gap-1 rounded-xl py-2 text-gray-400 transition-colors hover:text-white"
             >
-              <Home className="size-5" />
-              <span className="text-[10px] font-bold">Envíos 🛵</span>
+              <Bike className="size-5" />
+              <span className="text-[10px] font-bold">Envíos</span>
             </button>
           </div>
         </nav>
