@@ -6,8 +6,8 @@ import { Plus, Minus } from "lucide-react"
 interface ProductCardProps {
   product: Product
   onAdd: (product: Product) => void
-  onIncrement: (id: string) => void
-  onDecrement: (id: string) => void
+  onIncrement: (lineId: string) => void
+  onDecrement: (lineId: string) => void
   quantity?: number
 }
 
@@ -18,6 +18,9 @@ export function ProductCard({
   onDecrement, 
   quantity = 0,
 }: ProductCardProps) {
+  // Calcular el lineId usando el MISMO algoritmo que usa el store
+  const lineId = product.name.trim().toLowerCase()
+
   return (
     <div className="group relative overflow-hidden rounded-2xl bg-[#111] ring-1 ring-[#333] transition-all hover:ring-[#ff751f]/50">
       {product.image && (
@@ -49,14 +52,14 @@ export function ProductCard({
           ) : (
             <div className="flex items-center gap-1 rounded-full bg-[#ff751f] p-1">
               <button 
-                onClick={() => onDecrement(product.id)} 
+                onClick={() => onDecrement(lineId)}
                 className="flex size-8 items-center justify-center rounded-full bg-black text-white"
               >
                 <Minus className="size-4" />
               </button>
               <span className="w-7 text-center text-sm font-black text-black">{quantity}</span>
               <button 
-                onClick={() => onIncrement(product.id)} 
+                onClick={() => onIncrement(lineId)}
                 className="flex size-8 items-center justify-center rounded-full bg-black text-white"
               >
                 <Plus className="size-4" />
