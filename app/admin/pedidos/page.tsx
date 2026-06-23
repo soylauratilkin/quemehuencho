@@ -44,6 +44,7 @@ export default function PedidosPage() {
   const [ultimoPedidoId, setUltimoPedidoId] = useState<string | null>(null)
   const [enviosNuevos, setEnviosNuevos] = useState(false)
   const [audioDesbloqueado, setAudioDesbloqueado] = useState(false)
+  const audioRef = useState<HTMLAudioElement | null>(null)
 
 
   useEffect(() => {
@@ -56,20 +57,29 @@ export default function PedidosPage() {
     }
   }, [])
 
-  // Desbloquear audio con cualquier interacción del usuario
-  useEffect(() => {
-    function desbloquearAudio() {
-      if (!audioDesbloqueado) {
-        const audio = new Audio("/sounds/notificacion.mp3")
-        audio.volume = 0.01  // Volumen casi cero para no molestar
-        audio.play()
-          .then(() => {
-            setAudioDesbloqueado(true)
-            audio.pause()
-          })
-          .catch(e => console.log("Audio aún bloqueado"))
-      }
+// Crear el audio una sola vez
+useEffect(() => {
+  if (typeof window !== "undefined") {
+    const audio = new Audio("/sounds/notificacion.mp3")
+    audio.volume = 0.7
+    audio.loop = true  // ← Repetir hasta que se detenga
+    audioRef[0] = audio
+  }
+}, [])
+
+// Desbloquear audio
+useEffect(() => {
+  function desbloquearAudio() {
+    if (!audioDesbloqueado && audioRef[0]) {
+      audioRef[0].play()
+        .then(() => {
+          audioRef[0].pause()
+          audioRef[0].currentTime = 0
+          setAudioDesbloqueado(true)
+        })
+        .catch(e => console.log("Audio aún bloqueado"))
     }
+  }
     
     document.addEventListener("click", desbloquearAudio, { once: true })
     document.addEventListener("touchstart", desbloquearAudio, { once: true })
@@ -92,6 +102,24 @@ export default function PedidosPage() {
     loadProducts()
   }, [])
 
+
+function reproducirSonido() {
+  const audio = audioRef[0]
+  if (audioDesbloqueado && audio) {
+    audio.currentTime = 0
+    audio.play().catch(e => console.log("Error reproduciendo:", e))
+  }
+}
+
+function detenerSonido() {
+  const audio = audioRef[0]
+  if (audio) {
+    audio.pause()
+    audio.currentTime = 0
+  }
+}
+
+
 const cargarPedidos = useCallback(async () => {
   setIsLoading(true)
   try {
@@ -107,20 +135,11 @@ const cargarPedidos = useCallback(async () => {
       if (pedidoMasReciente.id !== ultimoPedidoId) {
         // Solo sonido para pedidos web
         if (pedidoMasReciente.origen === "web") {
-          if (audioDesbloqueado) {
-            try {
-              const audio = new Audio("/sounds/notificacion.mp3")
-              audio.volume = 0.7
-              audio.play().catch(e => console.log("No se pudo reproducir sonido:", e))
-            } catch (e) {
-              console.log("Error con sonido:", e)
-            }
-          }
+          reproducirSonido()  // ← Ahora es loop, no se detiene solo
           
           // Si es envío, titilar botón
           if (clasificar(pedidoMasReciente) === "envios") {
             setEnviosNuevos(true)
-            setTimeout(() => setEnviosNuevos(false), 5000)
           }
         }
       }
@@ -174,12 +193,12 @@ const cargarPedidos = useCallback(async () => {
   cargarPedidos()
 }
 
-  async function reenviarCliente(id: string) {
+  async function confirmarCliente(id: string) {
     try {
       const res = await fetch("/api/admin/pedidos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "reenviarCliente", id })
+        body: JSON.stringify({ action: "confirmarCliente", id })
       })
       const data = await res.json()
       if (data.success && data.link) {
@@ -671,34 +690,49 @@ const pedidosHoy = pedidos.filter((p) => {
 {/* ACCIONES */}
 <div className="flex items-center justify-between flex-wrap gap-2">
   <div className="flex gap-2 flex-wrap">
+    {/* ENTREGADO */}
     <button
       onClick={() => toggleEstado(pedido.id, "entregado")}
       className={`flex size-10 items-center justify-center rounded-full transition-all ${
         pedido.entregado ? "bg-green-500 text-white" : "bg-red-500 text-white hover:bg-red-600"
       }`}
+      title="Marcar como entregado"
     >
       <HandCoins className="size-5" />
     </button>
+    
+    {/* PAGADO */}
     <button
       onClick={() => toggleEstado(pedido.id, "pagado")}
       className={`flex size-10 items-center justify-center rounded-full transition-all ${
         pedido.pagado ? "bg-green-500 text-white" : "bg-red-500 text-white hover:bg-red-600"
       }`}
+      title="Marcar como pagado"
     >
       <Banknote className="size-5" />
     </button>
+    
+    {/* CONFIRMAR AL CLIENTE (solo web) */}
     {pedido.origen === "web" && (
       <button
-        onClick={() => reenviarCliente(pedido.id)}
+        onClick={() => confirmarCliente(pedido.id)}
         className={`flex size-10 items-center justify-center rounded-full transition-all ${
-          reenviadoCliente === pedido.id ? "bg-green-500 text-white" : "bg-red-500 text-white hover:bg-red-600"
+          pedido.confirmadoCliente 
+            ? "bg-green-500 text-white" 
+            : "bg-red-500 text-white hover:bg-red-600"
         }`}
-        title="Reenviar confirmación al cliente"
+        title={pedido.confirmadoCliente 
+          ? `Confirmado: ${pedido.confirmadoCliente}` 
+          : "Enviar confirmación al cliente"}
       >
         <Send className="size-5" />
       </button>
     )}
-    {clasificar(pedido) === "envios" && pedido.ubicacion !== "Retiro" && pedido.origen === "web" && (
+    
+    {/* REENVIAR AL DELIVERY (solo envíos que no son retiro) */}
+    {clasificar(pedido) === "envios" && 
+     !pedido.ubicacion?.toLowerCase().includes("retiro") && 
+     pedido.origen === "web" && (
       <button
         onClick={() => reenviarDelivery(pedido.id)}
         className={`flex size-10 items-center justify-center rounded-full transition-all ${
@@ -709,18 +743,36 @@ const pedidosHoy = pedidos.filter((p) => {
         <Bike className="size-5" />
       </button>
     )}
+    
+    {/* LISTO PARA RETIRO (solo retiro) */}
+    {pedido.ubicacion?.toLowerCase().includes("retiro") && pedido.origen === "web" && (
+      <button
+        onClick={() => listoRetiro(pedido.id)}
+        className={`flex size-10 items-center justify-center rounded-full transition-all ${
+          pedido.listoRetiro 
+            ? "bg-green-500 text-white" 
+            : "bg-orange-500 text-white hover:bg-orange-600"
+        }`}
+        title={pedido.listoRetiro 
+          ? `Listo: ${pedido.listoRetiro}` 
+          : "Avisar al cliente que está listo"}
+      >
+        <Check className="size-5" />
+      </button>
+    )}
   </div>
 
   {!isEditing && (
     <div className="flex gap-2">
-      <button
-        onClick={() => empezarEditar(pedido)}
-        className="flex items-center gap-1 rounded-full bg-[#1a1a1a] px-3 py-1.5 text-xs font-bold text-gray-300 hover:bg-[#2a2a2a]"
-      >
-        <Edit3 className="size-3" /> Editar
-      </button>
+      {!pedido.pagado && (
+        <button
+          onClick={() => empezarEditar(pedido)}
+          className="flex items-center gap-1 rounded-full bg-[#1a1a1a] px-3 py-1.5 text-xs font-bold text-gray-300 hover:bg-[#2a2a2a]"
+        >
+          <Edit3 className="size-3" /> Editar
+        </button>
+      )}
       
-      {/* ← BOTÓN BORRAR AGREGADO ACÁ */}
       <button
         onClick={() => borrarPedido(pedido.id)}
         className="flex items-center gap-1 rounded-full bg-red-500/20 px-3 py-1.5 text-xs font-bold text-red-400 hover:bg-red-500/30"
