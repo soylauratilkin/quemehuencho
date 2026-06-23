@@ -193,12 +193,12 @@ const cargarPedidos = useCallback(async () => {
   cargarPedidos()
 }
 
-  async function confirmarCliente(id: string) {
+  async function reenviarCliente(id: string) {
     try {
       const res = await fetch("/api/admin/pedidos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "confirmarCliente", id })
+        body: JSON.stringify({ action: "reenviarCliente", id })
       })
       const data = await res.json()
       if (data.success && data.link) {
@@ -715,7 +715,7 @@ const pedidosHoy = pedidos.filter((p) => {
     {/* CONFIRMAR AL CLIENTE (solo web) */}
     {pedido.origen === "web" && (
       <button
-        onClick={() => confirmarCliente(pedido.id)}
+        onClick={() => reenviarCliente(pedido.id)}
         className={`flex size-10 items-center justify-center rounded-full transition-all ${
           pedido.confirmadoCliente 
             ? "bg-green-500 text-white" 
