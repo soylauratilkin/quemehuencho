@@ -5,13 +5,12 @@ import { ShoppingBag } from "lucide-react"
 import { ProductCard } from "./product-card"
 import { CategorySelector, type CategoryId } from "./category-selector"
 import { useStore } from "./store"
-import { fetchProductsFromGoogleSheet, products as initialProducts, MENU_CSV_URL, formatPrice } from "@/lib/menu-data"
+import { fetchProductsFromGoogleSheet, products as initialProducts, MENU_CSV_URL, formatPrice, type Product } from "@/lib/menu-data"
 
 export function HomeScreen() {
-  const { setScreen, subtotal, itemCount } = useStore()
+  const { setScreen, subtotal, itemCount, items, addItem, increment, decrement } = useStore()
   const [products, setProducts] = useState(initialProducts)
   
-  // CAMBIO: Preseleccionar "combos" en lugar de "all"
   const [selectedCategory, setSelectedCategory] = useState<CategoryId>("combos")
   const [isLoading, setIsLoading] = useState(true)
 
@@ -29,7 +28,18 @@ export function HomeScreen() {
     loadProducts()
   }, [])
 
-  // CAMBIO: Filtrar directamente por la categoría seleccionada (sin condición "all")
+  // Función wrapper para convertir Product a CartItem
+  function handleAddToCart(product: Product) {
+    addItem({
+      productId: product.id,
+      name: product.name,
+      price: product.price,
+      category: product.category,
+      image: product.image,
+      quantity: 1
+    })
+  }
+
   const filteredProducts = products.filter((p) => p.category === selectedCategory)
 
   return (
@@ -151,9 +161,18 @@ export function HomeScreen() {
             <p className="text-gray-500">No hay productos en esta categoría</p>
           </div>
         ) : (
-          filteredProducts.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))
+          <div className="grid grid-cols-1 gap-3">
+            {filteredProducts.map((product) => (
+              <ProductCard
+                key={product.id}
+                product={product}
+                onAdd={handleAddToCart}
+                onIncrement={increment}
+                onDecrement={decrement}
+                quantity={items.find((i) => i.productId === product.id)?.quantity || 0}
+              />
+            ))}
+          </div>
         )}
       </section>
     </div>

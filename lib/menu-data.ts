@@ -102,6 +102,8 @@ export async function fetchProductsFromGoogleSheet(csvUrl: string): Promise<Prod
         category = "combos";
       } else if (categoriaRaw.includes("doc")) {
         category = "docenas";
+      } else if (categoriaRaw.includes("local") || categoriaRaw.includes("para tomar")) {
+        category = "local" as CategoryId;
       }
 
       // Imagen
@@ -125,7 +127,7 @@ export async function fetchProductsFromGoogleSheet(csvUrl: string): Promise<Prod
       });
     }
     
-    return productsList.filter((p) => ["combos", "docenas", "unidad"].includes(p.category));
+    return productsList.filter((p) => ["combos", "docenas", "unidad", "local"].includes(p.category));
   } catch (error) {
     console.error("Error fetching menu:", error);
     return products;
