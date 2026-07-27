@@ -220,7 +220,7 @@ async function confirmarPedido(sinModal = false) {
               <p className="text-lg font-extrabold text-black">{itemCount} items · {formatPrice(total)}</p>
             </div>
             <button
-              onClick={confirmarPedido}
+              onClick={() => confirmarPedido()}
               disabled={isSending}
               className="flex h-14 items-center gap-2 rounded-full bg-black px-8 font-bold text-[#ff751f] transition-transform active:scale-95 disabled:opacity-50"
             >
