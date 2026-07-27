@@ -130,6 +130,29 @@ export function CheckoutScreen() {
   }
 
   // ==========================================
+  // LIMPIEZA INTELIGENTE DE TELÉFONO
+  // ==========================================
+  const limpiarTelefono = (valor: string) => {
+    if (!valor) return ""
+    let limpio = valor.replace(/\D/g, "") // Deja solo números
+    
+    // Si tiene el prefijo duplicado (ej: 545492804007296), quitamos el primer 54
+    if (limpio.startsWith("5454")) {
+      limpio = limpio.substring(2)
+    }
+    
+    // Si no empieza con 54 y tiene longitud de celular, lo agregamos
+    if (!limpio.startsWith("54") && limpio.length >= 10) {
+      limpio = "54" + limpio
+    }
+    
+    return limpio
+  }
+
+
+
+
+  // ==========================================
   // PANTALLA DE CHECKOUT
   // ==========================================
   return (
@@ -194,7 +217,7 @@ export function CheckoutScreen() {
           <div className="relative">
             <input 
               value={phone} 
-              onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
+              onChange={(e) => setPhone(limpiarTelefono(e.target.value))}
               inputMode="numeric"
               placeholder="Ej: 2804123456 (10 dígitos)" 
               className={`h-12 w-full rounded-2xl px-4 text-sm font-medium outline-none ring-1 focus:ring-2 ${

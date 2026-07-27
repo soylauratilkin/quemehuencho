@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { ShoppingBag, Plus, Minus, Check } from "lucide-react"
 import { CategorySelector, type CategoryId } from "@/components/churros/category-selector"
 import { fetchProductsFromGoogleSheet, MENU_CSV_URL, formatPrice, type Product } from "@/lib/menu-data"
+import ConfirmacionModal from "@/components/ConfirmacionModal"
 
 type Ubicacion = "Mostrador" | "Mesa 1" | "Mesa 2" | "Mesa 3" | "Mesa 4" | "Mesa 5" | "Baúl"
 
@@ -25,6 +26,7 @@ export default function NuevoPedidoPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSending, setIsSending] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [mostrarConfirmacion, setMostrarConfirmacion] = useState(false)
 
   useEffect(() => {
     async function loadProducts() {
@@ -63,49 +65,59 @@ export default function NuevoPedidoPage() {
   const total = cart.reduce((acc, i) => acc + i.price * i.quantity, 0)
   const itemCount = cart.reduce((acc, i) => acc + i.quantity, 0)
 
-  async function confirmarPedido() {
-    if (cart.length === 0) {
-      alert("Agregá al menos un producto")
-      return
-    }
-
-    setIsSending(true)
-    const orderId = `QMH-${Date.now()}`
-    const detalle = cart.map((i) => `${i.quantity}x ${i.name}`).join(" | ")
-
-    try {
-      const response = await fetch("/api/admin/pedidos", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "nuevoPedidoLocal",
-          id: orderId,
-          origen: "local",
-          ubicacion: ubicacion,
-          total: Math.round(total),
-          items: cart,
-          detalle: detalle
-        })
-      })
-      
-      const result = await response.json()
-      if (result.success) {
-        setSuccess(true)
-        setCart([])
-        
-        // Forzar recarga de pedidos en el dashboard
-        // (si estás en la misma pestaña, redirigir a pedidos)
-        setTimeout(() => {
-          router.push("/admin/pedidos?refresh=" + Date.now())
-        }, 1500)
-      }
-    } catch (e) {
-      console.error(e)
-      alert("Error de conexión")
-    } finally {
-      setIsSending(false)
-    }
+async function confirmarPedido(sinModal = false) {
+  if (cart.length === 0) {
+    alert("Agregá al menos un producto")
+    return
   }
+
+  // Si no es llamado desde el modal, mostrar el modal primero
+  if (!sinModal) {
+    setMostrarConfirmacion(true)
+    return
+  }
+
+  setIsSending(true)
+  const orderId = `QMH-${Date.now()}`
+  const detalle = cart.map((i) => `${i.quantity}x ${i.name}`).join(" | ")
+
+  try {
+    const response = await fetch("/api/admin/pedidos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "nuevoPedidoLocal",
+        id: orderId,
+        origen: "local",
+        ubicacion: ubicacion,
+        total: Math.round(total),
+        items: cart,
+        detalle: detalle
+      })
+    })
+    
+    const result = await response.json()
+    if (result.success) {
+      setSuccess(true)
+      setCart([])
+      setUbicacion("Mostrador") // ← ¡RESET AUTOMÁTICO A MOSTRADOR!
+      
+      setTimeout(() => {
+        setSuccess(false)
+        // Si hay router disponible, redirigir
+        if (typeof window !== "undefined") {
+          window.location.href = "/admin/pedidos"
+        }
+      }, 1500)
+    }
+  } catch (e) {
+    console.error(e)
+    alert("Error de conexión")
+  } finally {
+    setIsSending(false)
+    setMostrarConfirmacion(false)
+  }
+}
 
   return (
     <div>
@@ -218,6 +230,18 @@ export default function NuevoPedidoPage() {
           </div>
         </div>
       )}
+
+      {/* MODAL DE CONFIRMACIÓN */}
+      <ConfirmacionModal
+        isOpen={mostrarConfirmacion}
+        onClose={() => setMostrarConfirmacion(false)}
+        onConfirm={() => confirmarPedido(true)}
+        items={cart.map(i => ({ name: i.name, quantity: i.quantity, price: i.price }))}
+        total={total}
+        ubicacion={ubicacion}
+        telefono=""
+        direccion=""
+      />
     </div>
   )
 }
