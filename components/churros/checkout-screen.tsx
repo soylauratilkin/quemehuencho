@@ -132,23 +132,31 @@ export function CheckoutScreen() {
   // ==========================================
   // LIMPIEZA INTELIGENTE DE TELÉFONO
   // ==========================================
-  const limpiarTelefono = (valor: string) => {
-    if (!valor) return ""
-    let limpio = valor.replace(/\D/g, "") // Deja solo números
-    
-    // Si tiene el prefijo duplicado (ej: 545492804007296), quitamos el primer 54
-    if (limpio.startsWith("5454")) {
-      limpio = limpio.substring(2)
-    }
-    
-    // Si no empieza con 54 y tiene longitud de celular, lo agregamos
-    if (!limpio.startsWith("54") && limpio.length >= 10) {
-      limpio = "54" + limpio
-    }
-    
-    return limpio
+// Función mejorada para limpiar teléfonos
+const limpiarTelefono = (valor: string) => {
+  if (!valor) return ""
+  
+  // 1. Quitar TODO lo que no sea número (incluyendo el +)
+  let limpio = valor.replace(/\D/g, "")
+  
+  // 2. Si empieza con 5454, quitar los primeros 2 dígitos (54 duplicado)
+  if (limpio.startsWith("5454")) {
+    limpio = limpio.substring(2)
   }
-
+  
+  // 3. Si empieza con 549 o 5411 (código Argentina + 9 para celular o 11 para CABA), está bien
+  // 4. Si no empieza con 54 y tiene 10+ dígitos, agregar 54 al principio
+  if (!limpio.startsWith("54") && limpio.length >= 10) {
+    limpio = "54" + limpio
+  }
+  
+  // 5. Limitar a 15 dígitos máximo (estándar internacional)
+  if (limpio.length > 15) {
+    limpio = limpio.substring(0, 15)
+  }
+  
+  return limpio
+}
 
 
 
