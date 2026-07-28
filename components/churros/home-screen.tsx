@@ -13,6 +13,7 @@ export function HomeScreen() {
   
   const [selectedCategory, setSelectedCategory] = useState<CategoryId>("combos")
   const [isLoading, setIsLoading] = useState(true)
+  const [mostrarMensajeLocal, setMostrarMensajeLocal] = useState(false) // <-- AGREGÁ ESTA LÍNEA
 
   useEffect(() => {
     async function loadProducts() {
@@ -30,9 +31,9 @@ export function HomeScreen() {
 
   // Función wrapper para convertir Product a CartItem
   function handleAddToCart(product: Product) {
-    // 🔒 BLOQUEO PARA PRODUCTOS "PARA TOMAR"
+    // 🔒 BLOQUEO ELEGANTE PARA PRODUCTOS "PARA TOMAR"
     if (product.category === "local") {
-      alert("🔒 ¡Este producto es exclusivo para disfrutar en nuestro local!\n\nVení a visitarnos a Roque Sáenz Peña 212 🔥")
+      setMostrarMensajeLocal(true)
       return
     }
 
@@ -181,6 +182,25 @@ export function HomeScreen() {
           </div>
         )}
       </section>
+      {/* MODAL ELEGANTE PARA PRODUCTOS DE LOCAL */}
+      {mostrarMensajeLocal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-sm rounded-2xl bg-[#111] p-6 ring-1 ring-[#ff751f] shadow-2xl text-center">
+            <div className="mb-4 text-5xl">🥐🔥</div>
+            <h3 className="text-xl font-bold text-white mb-2">¡Exclusivo en el local!</h3>
+            <p className="text-sm text-gray-300 mb-6 leading-relaxed">
+              Este producto está disponible solo para disfrutar en nuestro local. <br/>
+              <span className="text-[#ff751f] font-bold mt-1 block">¡Te esperamos en Roque Sáenz Peña 212!</span>
+            </p>
+            <button
+              onClick={() => setMostrarMensajeLocal(false)}
+              className="w-full rounded-full bg-[#ff751f] py-3 text-sm font-bold text-black hover:bg-[#ff8a3d] transition active:scale-95"
+            >
+              ¡Entendido, quiero ir!
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
