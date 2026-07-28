@@ -1,4 +1,4 @@
-export type CategoryId = "combos" | "docenas" | "unidad";
+export type CategoryId = "combos" | "docenas" | "unidad" | "local";
 
 export type Product = {
   id: string;

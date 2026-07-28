@@ -30,6 +30,12 @@ export function HomeScreen() {
 
   // Función wrapper para convertir Product a CartItem
   function handleAddToCart(product: Product) {
+    // 🔒 BLOQUEO PARA PRODUCTOS "PARA TOMAR"
+    if (product.category === "local") {
+      alert("🔒 ¡Este producto es exclusivo para disfrutar en nuestro local!\n\nVení a visitarnos a Roque Sáenz Peña 212 🔥")
+      return
+    }
+
     addItem({
       productId: product.id,
       name: product.name,
@@ -161,7 +167,7 @@ export function HomeScreen() {
             <p className="text-gray-500">No hay productos en esta categoría</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             {filteredProducts.map((product) => (
               <ProductCard
                 key={product.id}

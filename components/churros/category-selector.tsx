@@ -6,9 +6,10 @@ import type { CategoryId } from "@/lib/menu-data"
 export type { CategoryId }
 
 const categoriesPublic = [
-  { id: "combos" as CategoryId, label: "Combos", emoji: "" },
-  { id: "docenas" as CategoryId, label: "Por docena", emoji: "" },
-  { id: "unidad" as CategoryId, label: "Uno por uno", emoji: "" },
+  { id: "combos" as CategoryId, label: "Combos", emoji: "🥨" },
+  { id: "docenas" as CategoryId, label: "Por docena", emoji: "📦" },
+  { id: "unidad" as CategoryId, label: "Uno por uno", emoji: "🥐" },
+  { id: "local" as CategoryId, label: "Para Tomar", emoji: "🧉" }, // <-- NUEVO
 ]
 
 const categoriesAdmin = [
