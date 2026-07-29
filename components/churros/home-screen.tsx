@@ -52,7 +52,7 @@ export function HomeScreen() {
       name: product.name,
       price: product.price,
       category: product.category,
-      image: product.image,
+      image: product.image || "", //  Nunca undefined
       quantity: 1
     })
   }
