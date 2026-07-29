@@ -31,8 +31,12 @@ export function HomeScreen() {
 
   // Función wrapper para convertir Product a CartItem
   function handleAddToCart(product: Product) {
-    // 🔒 BLOQUEO ELEGANTE PARA PRODUCTOS "PARA TOMAR"
-    if (product.category === "local") {
+    // Detectar si viene de QR de mesa
+    const params = new URLSearchParams(window.location.search)
+    const mesa = params.get("mesa")
+    
+    // Solo bloquear "Para Tomar" si NO es mesa
+    if (product.category === "local" && !mesa) {
       setMostrarMensajeLocal(true)
       return
     }
