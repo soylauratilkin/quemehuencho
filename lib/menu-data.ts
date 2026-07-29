@@ -101,7 +101,7 @@ export async function fetchProductsFromGoogleSheet(csvUrl: string): Promise<Prod
         category = "local";
       }
 
-      // Imagen: Si no hay URL válida, asignar string vacío (NUNCA undefined)
+      // Imagen: Si empieza con http, la usa. Si no, string vacío (NUNCA undefined)
       const imageRaw = values[4]?.trim() || "";
       const image = imageRaw.startsWith("http") ? imageRaw : "";
 
@@ -116,15 +116,14 @@ export async function fetchProductsFromGoogleSheet(csvUrl: string): Promise<Prod
         description: values[2]?.trim() || "",
         price: precio,
         category,
-        image: image, //  Siempre string, nunca undefined
+        image: image, // Siempre string: o URL válida o ""
       });
     }
     
-    // Filtrar solo las categorías válidas (incluyendo "local" para "para tomar")
     return productsList.filter((p) => ["combos", "docenas", "unidad", "local"].includes(p.category));
   } catch (error) {
     console.error("Error fetching menu:", error);
-    return products; // Fallback a datos locales si falla
+    return products;
   }
 }
 export async function fetchConfig(): Promise<typeof DEFAULT_CONFIG> {
