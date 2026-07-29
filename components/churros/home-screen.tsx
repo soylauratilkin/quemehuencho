@@ -41,6 +41,12 @@ export function HomeScreen() {
       return
     }
 
+    //  LOG PARA DEBUGGEAR
+    console.log(" Producto agregado:", product)
+    console.log("🛒 Categoría:", product.category)
+    console.log("🛒 Tiene imagen?", !!product.image)
+    console.log("🛒 Tiene precio?", !!product.price)
+
     addItem({
       productId: product.id,
       name: product.name,
