@@ -552,12 +552,14 @@ const pedidosHoy = pedidos.filter((p) => {
             return (
               <div
                 key={pedido.id}
-                className={`rounded-2xl p-4 ring-1 ${
+                className={`rounded-2xl p-4 transition-all ${
                   pedido.pagado 
-                    ? "bg-green-950/20 ring-green-500/30 opacity-60"
+                    ? "bg-green-950/20 ring-1 ring-green-500/30 opacity-60"
                     : pedido.entregado 
-                    ? "bg-blue-950/30 ring-blue-500/30" 
-                    : "bg-[#111] ring-[#333]"
+                    ? "bg-blue-950/30 ring-1 ring-blue-500/30" 
+                    : (pedido.origen === "mesa")
+                    ? "bg-[#a855f7]/10 border-2 border-[#a855f7] shadow-[0_0_15px_rgba(168,85,247,0.3)]" // 🟣 ¡VIOLETA PARA MESAS!
+                    : "bg-[#111] ring-1 ring-[#333]"
                 }`}
               >
                 {/* HEADER DEL PEDIDO */}
@@ -612,7 +614,7 @@ const pedidosHoy = pedidos.filter((p) => {
                         <option value="Mesa 3">Mesa 3</option>
                         <option value="Mesa 4">Mesa 4</option>
                         <option value="Mesa 5">Mesa 5</option>
-                        <option value="Baúl">Baúl</option>
+                        <option value="Mesa 6">Mesa 6</option>
                       </select>
                     </div>
                     {itemsEdit.map((item, idx) => (
