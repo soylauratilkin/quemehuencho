@@ -103,7 +103,7 @@ export async function fetchProductsFromGoogleSheet(csvUrl: string): Promise<Prod
 
       // Imagen: Si empieza con http, la usa. Si no, string vacío (NUNCA undefined)
       const imageRaw = values[4]?.trim() || "";
-      const image = imageRaw.startsWith("http") ? imageRaw : "";
+      const image = imageRaw.startsWith("http") || imageRaw.startsWith("/") ?
 
       // Precio - FORZAR A NÚMERO
       const precioStr = values[3]?.trim() || "0";
