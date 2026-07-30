@@ -16,8 +16,8 @@ interface ConfirmacionModalProps {
   items: PedidoItem[]
   total: number
   ubicacion: string
-  telefono: string
-  direccion: string
+  telefono?: string
+  direccion?: string
 }
 
 export default function ConfirmacionModal({

@@ -31,18 +31,28 @@ export function HomeScreen() {
 
   // Función wrapper para convertir Product a CartItem
   function handleAddToCart(product: Product) {
-    // 🔒 BLOQUEO ELEGANTE PARA PRODUCTOS "PARA TOMAR"
-    if (product.category === "local") {
+    // Detectar si viene de QR de mesa
+    const params = new URLSearchParams(window.location.search)
+    const mesa = params.get("mesa")
+    
+    // Solo bloquear "Para Tomar" si NO es mesa
+    if (product.category === "local" && !mesa) {
       setMostrarMensajeLocal(true)
       return
     }
+
+    //  LOG PARA DEBUGGEAR
+    console.log(" Producto agregado:", product)
+    console.log("🛒 Categoría:", product.category)
+    console.log("🛒 Tiene imagen?", !!product.image)
+    console.log("🛒 Tiene precio?", !!product.price)
 
     addItem({
       productId: product.id,
       name: product.name,
       price: product.price,
       category: product.category,
-      image: product.image,
+      image: product.image || "", //  Nunca undefined
       quantity: 1
     })
   }

@@ -1,27 +1,86 @@
 "use client"
 
+import { useState } from "react"
 import { ArrowLeft, Minus, Plus, ShoppingBag, Trash2 } from "lucide-react"
 import { formatPrice } from "@/lib/menu-data"
 import { categoryIcon } from "./category-icons"
 import { useStore } from "./store"
 
-export function CartScreen() {
-  const { items, increment, decrement, removeItem, setScreen } = useStore()
+const WEBHOOK_URL = "/api/order";
 
-  // Calcular subtotal directamente con DEBUG
+// Componente Row para el resumen
+function Row({ label, value, isText, strong }: { label: string; value: string; isText?: boolean; strong?: boolean }) {
+  return (
+    <div className="flex justify-between text-sm">
+      <span className="text-gray-400">{label}</span>
+      <span className={`font-bold text-black ${isText ? "text-sm" : ""} ${strong ? "text-lg" : ""}`}>
+        {value}
+      </span>
+    </div>
+  )
+}
+
+export function CartScreen() {
+  // Agregamos clearCart o placeOrder según lo que tengas en tu store
+  const { items, increment, decrement, removeItem, setScreen, clearCart, placeOrder } = useStore()
+  
+  const esMesa = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("mesa") !== null
+  const numeroMesa = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("mesa") : ""
+  
+  const [enviando, setEnviando] = useState(false)
+
   const subtotal = items.reduce((acc, item) => {
     const price = Number(item.price) || 0
     const qty = Number(item.quantity) || 0
-    const itemTotal = price * qty
-    
-    console.log(`Carrito: ${item.name} | Precio: ${price} | Cantidad: ${qty} | Total: ${itemTotal}`)
-    
-    return acc + itemTotal
+    return acc + (price * qty)
   }, 0)
 
-  console.log(`SUBTOTAL TOTAL: ${subtotal}`)
-
   const total = subtotal
+
+  // 🚀 FUNCIÓN PARA ENVIAR PEDIDO DE MESA DIRECTAMENTE
+const handleConfirmarPedidoMesa = async () => {
+  setEnviando(true)
+  const orderId = "QMH-" + Date.now()
+  
+  try {
+    const response = await fetch(WEBHOOK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: orderId,
+        phone: "LOCAL", 
+        address: `Mesa ${numeroMesa}`, // El script usará esto para 'Direccion' y 'Ubicacion'
+        total: Math.round(total),
+        items: items, // El script armará el 'Detalle' con esto automáticamente
+        notes: `Pedido desde Mesa ${numeroMesa}`,
+        type: "Mesa", // El script detectará esto para poner 'Ubicacion' = 'Mesa X'
+        origen: "mesa", // CLAVE para el color violeta en admin
+        distanceKm: 0,
+        deliveryFee: 0
+      })
+    })
+    
+    const result = await response.json()
+    if (!result.success) throw new Error(result.error || "Error desconocido")
+
+    const detallesMesa = {
+      address: `Mesa ${numeroMesa}`,
+      notes: `Pedido desde Mesa ${numeroMesa}`,
+      phone: "LOCAL",
+      distanceKm: 0,
+      deliveryFee: 0,
+      paymentMethod: "Efectivo"
+    }
+    
+    placeOrder(detallesMesa, orderId)
+
+  } catch (error) {
+    console.error("Error enviando pedido:", error)
+    alert("Hubo un error al enviar el pedido. Avisale a un mozo.")
+  } finally {
+    setEnviando(false)
+  }
+}
 
   return (
     <div className="flex min-h-dvh flex-col pb-32 bg-[#0a0a0a]">
@@ -35,7 +94,7 @@ export function CartScreen() {
           <ArrowLeft className="size-5" />
         </button>
         <h1 className="font-heading text-xl font-semibold text-white">
-          Tu pedido
+          {esMesa ? `Mesa ${numeroMesa}` : "Tu pedido"}
         </h1>
       </header>
 
@@ -44,16 +103,8 @@ export function CartScreen() {
           <div className="flex size-20 items-center justify-center rounded-full bg-[#1a1a1a] text-[#ff751f]">
             <ShoppingBag className="size-9" />
           </div>
-          <p className="text-pretty text-lg font-bold text-white">
-            Tu carrito está vacío
-          </p>
-          <p className="text-sm text-gray-400">
-            Agregá unos churros calentitos para empezar.
-          </p>
-          <button
-            onClick={() => setScreen("home")}
-            className="mt-2 h-12 rounded-full bg-[#ff751f] px-6 font-bold text-black"
-          >
+          <p className="text-pretty text-lg font-bold text-white">Tu carrito está vacío</p>
+          <button onClick={() => setScreen("home")} className="mt-2 h-12 rounded-full bg-[#ff751f] px-6 font-bold text-black">
             Ver el menú
           </button>
         </div>
@@ -66,56 +117,33 @@ export function CartScreen() {
                 const itemTotal = (Number(item.price) || 0) * (Number(item.quantity) || 0)
                 
                 return (
-                  <li
-                    key={item.lineId}
-                    className="flex gap-3 rounded-3xl bg-[#111] p-3 shadow-sm ring-1 ring-[#333]"
-                  >
+                  <li key={item.lineId} className="flex gap-3 rounded-3xl bg-[#111] p-3 shadow-sm ring-1 ring-[#333]">
                     <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-[#1a1a1a] overflow-hidden">
                       {item.image ? (
                         <img src={item.image} alt={item.name} className="h-full w-full object-cover" />
                       ) : (
-                        <Icon className="size-7 text-[#ff751f]" />
+                        Icon ? <Icon className="size-7 text-[#ff751f]" /> : <ShoppingBag className="size-7 text-[#ff751f]" />
                       )}
                     </div>
                     <div className="flex flex-1 flex-col">
                       <div className="flex items-start justify-between gap-2">
-                        <h3 className="text-pretty font-bold leading-snug text-white">
-                          {item.name}
-                        </h3>
-                        <button
-                          onClick={() => removeItem(item.lineId)}
-                          aria-label={`Quitar ${item.name}`}
-                          className="text-gray-500 transition-colors active:text-red-500"
-                        >
+                        <h3 className="text-pretty font-bold leading-snug text-white">{item.name}</h3>
+                        <button onClick={() => removeItem(item.lineId)} className="text-gray-500 active:text-red-500">
                           <Trash2 className="size-4" />
                         </button>
                       </div>
-                      <p className="text-xs text-gray-400">
-                        {formatPrice(Number(item.price) || 0)} c/u
-                      </p>
+                      <p className="text-xs text-gray-400">{formatPrice(Number(item.price) || 0)} c/u</p>
                       <div className="mt-auto flex items-center justify-between pt-2">
                         <div className="flex items-center gap-2 rounded-full bg-[#1a1a1a] p-1">
-                          <button
-                            onClick={() => decrement(item.lineId)}
-                            aria-label="Quitar uno"
-                            className="flex size-8 items-center justify-center rounded-full bg-[#0a0a0a] text-white"
-                          >
+                          <button onClick={() => decrement(item.lineId)} className="flex size-8 items-center justify-center rounded-full bg-[#0a0a0a] text-white">
                             <Minus className="size-4" />
                           </button>
-                          <span className="w-5 text-center font-bold tabular-nums text-white">
-                            {item.quantity}
-                          </span>
-                          <button
-                            onClick={() => increment(item.lineId)}
-                            aria-label="Agregar uno"
-                            className="flex size-8 items-center justify-center rounded-full bg-[#ff751f] text-black"
-                          >
+                          <span className="w-5 text-center font-bold tabular-nums text-white">{item.quantity}</span>
+                          <button onClick={() => increment(item.lineId)} className="flex size-8 items-center justify-center rounded-full bg-[#ff751f] text-black">
                             <Plus className="size-4" />
                           </button>
                         </div>
-                        <span className="font-extrabold tabular-nums text-white">
-                          {formatPrice(itemTotal)}
-                        </span>
+                        <span className="font-extrabold tabular-nums text-white">{formatPrice(itemTotal)}</span>
                       </div>
                     </div>
                   </li>
@@ -123,64 +151,30 @@ export function CartScreen() {
               })}
             </ul>
 
-            {/* RESUMEN CON FONDO NARANJA */}
-            <div className="mt-6 space-y-2 rounded-3xl bg-[#ff751f] p-4 shadow-lg ring-2 ring-[#ff751f]">
-              <Row label="Subtotal" value={formatPrice(subtotal)} />
-              <Row label="Envío" value="A calcular en el siguiente paso" isText />
-              <div className="my-1 border-t border-dashed border-black/30" />
-              <Row label="Total (sin envío)" value={formatPrice(total)} strong />
-            </div>
+            {/* RESUMEN: OCULTO PARA MESAS */}
+            {!esMesa && (
+              <div className="mt-6 space-y-2 rounded-3xl bg-[#ff751f] p-4 shadow-lg ring-2 ring-[#ff751f]">
+                <Row label="Subtotal" value={formatPrice(subtotal)} />
+                <Row label="Envío" value="A calcular en el siguiente paso" isText />
+                <div className="my-1 border-t border-dashed border-black/30" />
+                <Row label="Total (sin envío)" value={formatPrice(total)} strong />
+              </div>
+            )}
           </div>
 
-          {/* BOTÓN CONTINUAR - FIJO ABAJO CON FONDO NARANJA */}
+          {/* BOTÓN DE ACCIÓN */}
           <div className="fixed inset-x-0 bottom-0 z-50 mx-auto max-w-md border-t-2 border-[#ff751f] bg-[#ff751f] px-4 py-4 shadow-2xl">
             <button
-              onClick={() => setScreen("checkout")}
-              className="flex h-14 w-full items-center justify-between rounded-full bg-black px-6 font-bold text-[#ff751f] transition-transform active:scale-[0.98]"
+              onClick={esMesa ? handleConfirmarPedidoMesa : () => setScreen("checkout")}
+              disabled={enviando}
+              className="flex h-14 w-full items-center justify-between rounded-full bg-black px-6 font-bold text-[#ff751f] transition-transform active:scale-[0.98] disabled:opacity-50"
             >
-              <span>Continuar</span>
+              <span>{enviando ? "Enviando..." : (esMesa ? "Confirmar Pedido" : "Continuar")}</span>
               <span className="tabular-nums">{formatPrice(total)}</span>
             </button>
           </div>
         </>
       )}
-    </div>
-  )
-}
-
-function Row({
-  label,
-  value,
-  strong,
-  isText,
-}: {
-  label: string
-  value: string
-  strong?: boolean
-  isText?: boolean
-}) {
-  return (
-    <div className="flex items-center justify-between">
-      <span
-        className={
-          strong
-            ? "text-base font-bold text-black"
-            : "text-sm text-black/80"
-        }
-      >
-        {label}
-      </span>
-      <span
-        className={
-          strong
-            ? "text-lg font-extrabold tabular-nums text-black"
-            : isText 
-              ? "text-sm font-semibold text-black/70 italic"
-              : "text-sm font-semibold tabular-nums text-black"
-        }
-      >
-        {value}
-      </span>
     </div>
   )
 }

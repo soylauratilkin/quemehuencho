@@ -89,13 +89,8 @@ export async function fetchProductsFromGoogleSheet(csvUrl: string): Promise<Prod
       const values = line.split(",");
       if (values.length < 4) continue;
 
-      // Categoría - EXCLUIR "para tomar"
+      // Categoría
       const categoriaRaw = values[0]?.trim().toLowerCase() || "";
-      
-      // Si es "para tomar", lo saltamos completamente
-      if (categoriaRaw.includes("para tomar")) {
-        continue;
-      }
       
       let category: CategoryId = "unidad";
       if (categoriaRaw.includes("combo") || categoriaRaw.includes("promo") || categoriaRaw.includes("mezcla")) {
@@ -103,27 +98,25 @@ export async function fetchProductsFromGoogleSheet(csvUrl: string): Promise<Prod
       } else if (categoriaRaw.includes("doc")) {
         category = "docenas";
       } else if (categoriaRaw.includes("local") || categoriaRaw.includes("para tomar")) {
-        category = "local" as CategoryId;
+        category = "local";
       }
 
-      // Imagen
+      // Imagen: Si empieza con http, la usa. Si no, string vacío (NUNCA undefined)
       const imageRaw = values[4]?.trim() || "";
-      const image = imageRaw.startsWith("http") ? imageRaw : (imageRaw || undefined);
+      const image = imageRaw.startsWith("http") ? imageRaw : "";
 
       // Precio - FORZAR A NÚMERO
       const precioStr = values[3]?.trim() || "0";
       const precioLimpio = precioStr.replace(/[^\d]/g, "");
       const precio = parseInt(precioLimpio, 10) || 0;
 
-      console.log(`Producto cargado: ${values[1]} | Precio: ${precio} (tipo: ${typeof precio})`);
-
       productsList.push({
         id: `prod-${i}`,
         name: values[1]?.trim() || "Producto",
         description: values[2]?.trim() || "",
-        price: precio, // GARANTIZADO que es número
+        price: precio,
         category,
-        image: image,
+        image: image, // Siempre string: o URL válida o ""
       });
     }
     
@@ -133,7 +126,6 @@ export async function fetchProductsFromGoogleSheet(csvUrl: string): Promise<Prod
     return products;
   }
 }
-
 export async function fetchConfig(): Promise<typeof DEFAULT_CONFIG> {
   if (!CONFIG_CSV_URL) return DEFAULT_CONFIG;
   
