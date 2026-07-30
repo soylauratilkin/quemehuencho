@@ -7,6 +7,7 @@ import { useStore } from "./store"
 
 export function CartScreen() {
   const { items, increment, decrement, removeItem, setScreen } = useStore()
+  const esMesa = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("mesa") !== null
 
   // Calcular subtotal directamente con DEBUG
   const subtotal = items.reduce((acc, item) => {
@@ -128,12 +129,15 @@ export function CartScreen() {
             </ul>
 
             {/* RESUMEN CON FONDO NARANJA */}
-            <div className="mt-6 space-y-2 rounded-3xl bg-[#ff751f] p-4 shadow-lg ring-2 ring-[#ff751f]">
-              <Row label="Subtotal" value={formatPrice(subtotal)} />
-              <Row label="Envío" value="A calcular en el siguiente paso" isText />
-              <div className="my-1 border-t border-dashed border-black/30" />
-              <Row label="Total (sin envío)" value={formatPrice(total)} strong />
-            </div>
+            {/* SOLO MOSTRAR SI NO ES PEDIDO DE MESA */}
+            {!esMesa && (
+              <div className="mt-6 space-y-2 rounded-3xl bg-[#ff751f] p-4 shadow-lg ring-2 ring-[#ff751f]">
+                <Row label="Subtotal" value={formatPrice(subtotal)} />
+                <Row label="Envío" value="A calcular en el siguiente paso" isText />
+                <div className="my-1 border-t border-dashed border-black/30" />
+                <Row label="Total (sin envío)" value={formatPrice(total)} strong />
+              </div>
+            )}
           </div>
 
           {/* BOTÓN CONTINUAR - FIJO ABAJO CON FONDO NARANJA */}
