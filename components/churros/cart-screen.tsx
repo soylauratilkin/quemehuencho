@@ -38,53 +38,49 @@ export function CartScreen() {
   const total = subtotal
 
   // 🚀 FUNCIÓN PARA ENVIAR PEDIDO DE MESA DIRECTAMENTE
-  const handleConfirmarPedidoMesa = async () => {
-    setEnviando(true)
-    const orderId = "QMH-" + Date.now()
-
-    try {
-      const response = await fetch(WEBHOOK_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: orderId,
-          phone: "", // No hace falta para mesas
-          address: `Mesa ${numeroMesa}`, // Usamos la mesa como "dirección"
-          total: Math.round(total),
-          items: items,
-          notes: `Pedido desde Mesa ${numeroMesa}`,
-          type: "Mesa",
-          distanceKm: 0,
-          deliveryFee: 0,
-          origen: "mesa" // 🔑 Clave para que el admin lo pinte violeta
-        })
-      })
-      
-      const result = await response.json()
-      
-      if (!result.success) {
-        throw new Error(result.error || "Error desconocido")
-      }
-
-      // ¡ÉXITO! Limpiar carrito y mostrar pantalla de éxito
-      const detallesMesa = {
-        address: `Mesa ${numeroMesa}`,
+const handleConfirmarPedidoMesa = async () => {
+  setEnviando(true)
+  const orderId = "QMH-" + Date.now()
+  
+  try {
+    const response = await fetch(WEBHOOK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: orderId,
+        phone: "LOCAL", 
+        address: `Mesa ${numeroMesa}`, // El script usará esto para 'Direccion' y 'Ubicacion'
+        total: Math.round(total),
+        items: items, // El script armará el 'Detalle' con esto automáticamente
         notes: `Pedido desde Mesa ${numeroMesa}`,
-        phone: "",
+        type: "Mesa", // El script detectará esto para poner 'Ubicacion' = 'Mesa X'
+        origen: "mesa", // CLAVE para el color violeta en admin
         distanceKm: 0,
-        deliveryFee: 0,
-        paymentMethod: "Efectivo" // O el método que uses por defecto
-      }
-      
-      placeOrder(detallesMesa, orderId)
+        deliveryFee: 0
+      })
+    })
+    
+    const result = await response.json()
+    if (!result.success) throw new Error(result.error || "Error desconocido")
 
-    } catch (error) {
-      console.error("Error enviando pedido:", error)
-      alert("Hubo un error al enviar el pedido. Por favor, avisale a un mozo.")
-    } finally {
-      setEnviando(false)
+    const detallesMesa = {
+      address: `Mesa ${numeroMesa}`,
+      notes: `Pedido desde Mesa ${numeroMesa}`,
+      phone: "LOCAL",
+      distanceKm: 0,
+      deliveryFee: 0,
+      paymentMethod: "Efectivo"
     }
+    
+    placeOrder(detallesMesa, orderId)
+
+  } catch (error) {
+    console.error("Error enviando pedido:", error)
+    alert("Hubo un error al enviar el pedido. Avisale a un mozo.")
+  } finally {
+    setEnviando(false)
   }
+}
 
   return (
     <div className="flex min-h-dvh flex-col pb-32 bg-[#0a0a0a]">
