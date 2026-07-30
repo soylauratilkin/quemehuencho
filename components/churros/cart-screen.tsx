@@ -1,13 +1,28 @@
 "use client"
 
+import { useState } from "react"
 import { ArrowLeft, Minus, Plus, ShoppingBag, Trash2 } from "lucide-react"
 import { formatPrice } from "@/lib/menu-data"
 import { categoryIcon } from "./category-icons"
 import { useStore } from "./store"
+import ConfirmacionModal from "../ConfirmacionModal"
+
+// Componente Row para mostrar filas de resumen
+function Row({ label, value, isText, strong }: { label: string; value: string; isText?: boolean; strong?: boolean }) {
+  return (
+    <div className="flex justify-between text-sm">
+      <span className="text-gray-400">{label}</span>
+      <span className={`font-bold text-black ${isText ? "text-sm" : ""} ${strong ? "text-lg" : ""}`}>
+        {value}
+      </span>
+    </div>
+  )
+}
 
 export function CartScreen() {
   const { items, increment, decrement, removeItem, setScreen } = useStore()
   const esMesa = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("mesa") !== null
+  const [modalAbierto, setModalAbierto] = useState(false)
 
   // Calcular subtotal directamente con DEBUG
   const subtotal = items.reduce((acc, item) => {
@@ -23,6 +38,14 @@ export function CartScreen() {
   console.log(`SUBTOTAL TOTAL: ${subtotal}`)
 
   const total = subtotal
+
+  const numeroMesa = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("mesa") : ""
+
+  const handleConfirmarPedido = () => {
+    // Acá después vamos a conectar con el webhook de Google Sheets
+    alert(`¡Pedido de Mesa ${numeroMesa} confirmado! Total: ${formatPrice(total)}`)
+    setModalAbierto(false)
+  }
 
   return (
     <div className="flex min-h-dvh flex-col pb-32 bg-[#0a0a0a]">
@@ -78,7 +101,7 @@ export function CartScreen() {
                         Icon ? (
                           <Icon className="size-7 text-[#ff751f]" />
                         ) : (
-                          <ShoppingBag className="size-7 text-[#ff751f]" />  // Ícono por defecto
+                          <ShoppingBag className="size-7 text-[#ff751f]" />
                         )
                       )}
                     </div>
@@ -140,55 +163,30 @@ export function CartScreen() {
             )}
           </div>
 
-          {/* BOTÓN CONTINUAR - FIJO ABAJO CON FONDO NARANJA */}
+          {/* BOTÓN CONTINUAR / CONFIRMAR - FIJO ABAJO */}
           <div className="fixed inset-x-0 bottom-0 z-50 mx-auto max-w-md border-t-2 border-[#ff751f] bg-[#ff751f] px-4 py-4 shadow-2xl">
             <button
-              onClick={() => setScreen("checkout")}
+              onClick={() => esMesa ? setModalAbierto(true) : setScreen("checkout")}
               className="flex h-14 w-full items-center justify-between rounded-full bg-black px-6 font-bold text-[#ff751f] transition-transform active:scale-[0.98]"
             >
-              <span>Continuar</span>
+              <span>{esMesa ? "Confirmar Pedido" : "Continuar"}</span>
               <span className="tabular-nums">{formatPrice(total)}</span>
             </button>
           </div>
+
+          {/* MODAL DE CONFIRMACIÓN PARA PEDIDOS DE MESA */}
+          {modalAbierto && (
+            <ConfirmacionModal
+              isOpen={modalAbierto}
+              onClose={() => setModalAbierto(false)}
+              onConfirm={handleConfirmarPedido}
+              items={items}
+              total={total}
+              ubicacion={`Mesa ${numeroMesa}`}
+            />
+          )}
         </>
       )}
-    </div>
-  )
-}
-
-function Row({
-  label,
-  value,
-  strong,
-  isText,
-}: {
-  label: string
-  value: string
-  strong?: boolean
-  isText?: boolean
-}) {
-  return (
-    <div className="flex items-center justify-between">
-      <span
-        className={
-          strong
-            ? "text-base font-bold text-black"
-            : "text-sm text-black/80"
-        }
-      >
-        {label}
-      </span>
-      <span
-        className={
-          strong
-            ? "text-lg font-extrabold tabular-nums text-black"
-            : isText 
-              ? "text-sm font-semibold text-black/70 italic"
-              : "text-sm font-semibold tabular-nums text-black"
-        }
-      >
-        {value}
-      </span>
     </div>
   )
 }
