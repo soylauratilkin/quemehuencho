@@ -74,7 +74,11 @@ export function CartScreen() {
                       {item.image ? (
                         <img src={item.image} alt={item.name} className="h-full w-full object-cover" />
                       ) : (
-                        <Icon className="size-7 text-[#ff751f]" />
+                        Icon ? (
+                          <Icon className="size-7 text-[#ff751f]" />
+                        ) : (
+                          <ShoppingBag className="size-7 text-[#ff751f]" />  // Ícono por defecto
+                        )
                       )}
                     </div>
                     <div className="flex flex-1 flex-col">
