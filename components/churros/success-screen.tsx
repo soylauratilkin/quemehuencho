@@ -5,49 +5,45 @@ import { useStore } from "./store"
 import { formatPrice } from "@/lib/menu-data"
 
 export function SuccessScreen() {
-  const { setScreen, history, orderDetails } = useStore()
+  const { history, orderDetails } = useStore()
   
   // Obtener el último pedido
   const lastOrder = history[0]
   
-  // Detectar si es un pedido de mesa
-  const esPedidoDeMesa = orderDetails?.address?.includes("Mesa")
+  // Detectar si es un pedido de mesa (por la dirección guardada o por la URL)
+  const esPedidoDeMesa = 
+    orderDetails?.address?.includes("Mesa") || 
+    (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("mesa") !== null)
 
-  // Si no hay pedido en el historial, mostrar mensaje genérico
+  // Función para limpiar todo y empezar un pedido nuevo
+  const handleNuevoPedido = () => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("qh_cart")
+      localStorage.removeItem("qh_order_details")
+      localStorage.removeItem("qh_history") // Limpiamos el historial para que no quede el pedido anterior
+      window.location.href = "/" // Recarga la página desde cero
+    }
+  }
+
+  // Si no hay pedido en el historial, mostramos un fallback simple
   if (!lastOrder) {
     return (
       <div className="flex min-h-dvh flex-col items-center justify-center p-6 text-center bg-[#0a0a0a]">
         <div className="mb-6 flex size-20 items-center justify-center rounded-full bg-[#ff751f] text-black">
           <Check className="size-10" strokeWidth={3} />
         </div>
-        <h1 className="mb-4 font-heading text-2xl font-bold text-white">
-          {esPedidoDeMesa ? "¡Pedido Confirmado!" : "Procesando pedido..."}
-        </h1>
-        
-        {esPedidoDeMesa ? (
-          <div className="mb-6 text-sm text-green-400 font-bold bg-green-900/20 p-4 rounded-xl border border-green-500/50 max-w-sm">
-            ✅ ¡Todo en orden! Un mozo se acercará a tu mesa en breve.
-          </div>
-        ) : (
-          <>
-            <div className="mb-6 text-sm text-red-400 font-bold bg-red-900/20 p-4 rounded-xl border border-red-500/50 max-w-sm">
-              ⚠️ Tu pedido <span className="underline">NO es efectivo</span> hasta que recibas un mensaje de confirmación por WhatsApp.
-            </div>
-            <button
-              onClick={() => window.open(`https://wa.me/542804007296?text=${encodeURIComponent("Hola! Hice un pedido pero no recibí confirmación.")}`, "_blank", "noopener,noreferrer")}
-              className="flex h-14 w-full max-w-sm items-center justify-center gap-2 rounded-full bg-[#ff751f] text-base font-bold text-black shadow-xl"
-            >
-              <svg viewBox="0 0 24 24" className="size-5 fill-current">
-                <path d="M.057 24l1.687-6.163a11.867 11.867 0 01-1.587-5.945C.16 5.335 5.495 0 12.05 0a11.82 11.82 0 018.413 3.488 11.82 11.82 0 013.48 8.414c-.003 6.557-5.338 11.892-11.893 11.892a11.9 11.9 0 01-5.688-1.448L.057 24zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884a9.86 9.86 0 001.51 5.26l-.999 3.648 3.578-.985zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z" />
-              </svg>
-              Contactar a Quemehuencho
-            </button>
-          </>
-        )}
+        <h1 className="mb-4 font-heading text-2xl font-bold text-white">¡No hay pedido activo!</h1>
+        <button
+          onClick={handleNuevoPedido}
+          className="flex h-12 w-full max-w-sm items-center justify-center gap-2 rounded-full bg-[#ff751f] text-base font-bold text-black transition-transform active:scale-[0.98]"
+        >
+          Volver al menú
+        </button>
       </div>
     )
   }
 
+  // FLUJO NORMAL CON PEDIDO
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center p-6 text-center bg-[#0a0a0a]">
       <div className="mb-6 flex size-20 items-center justify-center rounded-full bg-[#ff751f] text-black animate-in zoom-in duration-300">
@@ -58,13 +54,14 @@ export function SuccessScreen() {
         {esPedidoDeMesa ? "¡Pedido Confirmado!" : "Procesando pedido..."}
       </h1>
       
+      {/* MENSAJES CONDICIONALES */}
       {esPedidoDeMesa ? (
         <div className="mb-6 text-sm text-green-400 font-bold bg-green-900/20 p-4 rounded-xl border border-green-500/50 max-w-sm">
-          ✅ ¡Todo en orden! en unos minutos te llevamos el pedido.
+          ✅ ¡Todo en orden! En unos minutos te llevamos el pedido a la mesa.
         </div>
       ) : (
         <div className="mb-6 text-sm text-red-400 font-bold bg-red-900/20 p-4 rounded-xl border border-red-500/50 max-w-sm">
-          ⚠️ Tu pedido <span className="underline">NO es efectivo</span> hasta que recibas un mensaje de confirmación por WhatsApp. Si tardamos en confirmar por favor contactanos por WhatsApp.
+          ⚠️ Tu pedido <span className="underline">NO es efectivo</span> hasta que recibas un mensaje de confirmación por WhatsApp.
         </div>
       )}
 
@@ -94,16 +91,27 @@ export function SuccessScreen() {
         </div>
       </div>
 
-      {/* MENSAJES Y BOTÓN SOLO PARA DELIVERY / RETIRO */}
-      {!esPedidoDeMesa && (
+      {/* BOTONES CONDICIONALES FINALES */}
+      {esPedidoDeMesa ? (
+        // BOTÓN PARA MESAS: Hacer otro pedido (Limpia todo)
+        <button
+          onClick={handleNuevoPedido}
+          className="flex h-14 w-full max-w-sm items-center justify-center gap-2 rounded-full bg-[#1a1a1a] text-base font-bold text-white transition-transform active:scale-[0.98] border border-[#333] hover:bg-[#2a2a2a]"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          Hacer otro pedido
+        </button>
+      ) : (
+        // BOTÓN PARA DELIVERY/RETIRO: Contactar por WhatsApp
         <>
-          <p className="mb-6 text-xs text-gray-500 max-w-xs">
+          <p className="mb-4 text-xs text-gray-500 max-w-xs">
             Si no recibís la confirmación, es posible que hayamos tenido un problema con tu número.
           </p>
-
           <button
             onClick={() => window.open(`https://wa.me/542804007296?text=${encodeURIComponent(`Hola! Hice un pedido (ID: ${lastOrder.id}) pero no recibí confirmación. Mi número es ${orderDetails?.phone || "no especificado"}.`)}`, "_blank", "noopener,noreferrer")}
-            className="mb-4 flex h-14 w-full max-w-sm items-center justify-center gap-2 rounded-full bg-[#ff751f] text-base font-bold text-black transition-transform active:scale-[0.98] shadow-xl"
+            className="flex h-14 w-full max-w-sm items-center justify-center gap-2 rounded-full bg-[#ff751f] text-base font-bold text-black transition-transform active:scale-[0.98] shadow-xl"
           >
             <svg viewBox="0 0 24 24" className="size-5 fill-current">
               <path d="M.057 24l1.687-6.163a11.867 11.867 0 01-1.587-5.945C.16 5.335 5.495 0 12.05 0a11.82 11.82 0 018.413 3.488 11.82 11.82 0 013.48 8.414c-.003 6.557-5.338 11.892-11.893 11.892a11.9 11.9 0 01-5.688-1.448L.057 24zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884a9.86 9.86 0 001.51 5.26l-.999 3.648 3.578-.985zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z" />
