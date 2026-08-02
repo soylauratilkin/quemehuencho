@@ -35,8 +35,9 @@ export function CheckoutScreen() {
 
   const total = subtotal + (pickupInStore ? 0 : deliveryFee)
 
-  // VALIDACIÓN ESTRICTA DE TELÉFONO (10-15 dígitos)
-  const isPhoneValid = /^\d{10,15}$/.test(phone.replace(/\s/g, ""))
+  // Validación estricta: 10 dígitos (ej: 2804007296) u 11 dígitos (ej: 92804007296)
+  const cleanPhone = phone.replace(/\D/g, "")
+  const isPhoneValid = /^\d{10,11}$/.test(cleanPhone)
 
   async function calcularDistanciaReal(direccionDestino: string) {
     try {
@@ -130,33 +131,29 @@ export function CheckoutScreen() {
   }
 
   // ==========================================
-  // LIMPIEZA INTELIGENTE DE TELÉFONO
+  // LIMPIEZA Y VALIDACIÓN DE TELÉFONO (CORREGIDA)
   // ==========================================
-// Función mejorada para limpiar teléfonos
-const limpiarTelefono = (valor: string) => {
-  if (!valor) return ""
-  
-  // 1. Quitar TODO lo que no sea número (incluyendo el +)
-  let limpio = valor.replace(/\D/g, "")
-  
-  // 2. Si empieza con 5454, quitar los primeros 2 dígitos (54 duplicado)
-  if (limpio.startsWith("5454")) {
-    limpio = limpio.substring(2)
+  const limpiarTelefono = (valor: string) => {
+    if (!valor) return ""
+    
+    // 1. Quitar TODO lo que no sea número
+    let limpio = valor.replace(/\D/g, "")
+    
+    // 2. Si el usuario pega un número con 549 o 54, se lo quitamos. 
+    // Queremos que solo vea y edite su número local.
+    if (limpio.startsWith("549")) {
+      limpio = limpio.substring(3)
+    } else if (limpio.startsWith("54")) {
+      limpio = limpio.substring(2)
+    }
+    
+    // 3. Limitar a 11 dígitos máximo (ej: 9 + 10 dígitos del celular)
+    if (limpio.length > 11) {
+      limpio = limpio.substring(0, 11)
+    }
+    
+    return limpio
   }
-  
-  // 3. Si empieza con 549 o 5411 (código Argentina + 9 para celular o 11 para CABA), está bien
-  // 4. Si no empieza con 54 y tiene 10+ dígitos, agregar 54 al principio
-  if (!limpio.startsWith("54") && limpio.length >= 10) {
-    limpio = "54" + limpio
-  }
-  
-  // 5. Limitar a 15 dígitos máximo (estándar internacional)
-  if (limpio.length > 15) {
-    limpio = limpio.substring(0, 15)
-  }
-  
-  return limpio
-}
 
 const obtenerUbicacionActual = () => {
   if (!navigator.geolocation) {
@@ -259,28 +256,24 @@ const obtenerUbicacionActual = () => {
                   className="h-12 flex-1 rounded-2xl bg-[#1a1a1a] px-4 text-sm font-medium text-white outline-none ring-1 ring-[#333] focus:ring-2 focus:ring-[#ff751f]" 
                 />
                 {/* BOTÓN GEOLOCALIZACIÓN CON TOOLTIP */}
-                <div className="relative">
-                  <button 
-                    type="button"
-                    onClick={obtenerUbicacionActual} 
-                    disabled={geoLoading}
-                    className="h-12 w-12 shrink-0 rounded-2xl bg-[#ff751f] hover:bg-[#e66a1c] disabled:bg-gray-600 text-black font-bold flex items-center justify-center transition-all"
-                    title="Usar mi ubicación actual"
-                  >
-                    {geoLoading ? (
+                <button 
+                  type="button"
+                  onClick={obtenerUbicacionActual} 
+                  disabled={geoLoading}
+                  className="h-12 w-full sm:w-auto px-4 shrink-0 rounded-2xl bg-[#ff751f] hover:bg-[#e66a1c] disabled:bg-gray-600 text-black font-bold flex items-center justify-center gap-2 transition-all"
+                >
+                  {geoLoading ? (
+                    <>
                       <Loader2 className="size-5 animate-spin" />
-                    ) : (
+                      <span className="text-sm">Buscando...</span>
+                    </>
+                  ) : (
+                    <>
                       <MapPin className="size-5" />
-                    )}
-                  </button>
-                  
-                  {/* TOOLTIP / HINT */}
-                  <div className="absolute -bottom-6 left-0 right-0 text-center">
-                    <span className="text-[9px] text-gray-500 font-medium">
-                      📍 Usar mi ubicación
-                    </span>
-                  </div>
-                </div>
+                      <span className="text-sm">Usar mi ubicación</span>
+                    </>
+                  )}
+                </button>
               </div>
               
               <button onClick={handleCalcularEnvio} disabled={isCalculating} className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-[#ff751f]/30 bg-[#ff751f]/10 text-sm font-bold text-[#ff751f] disabled:opacity-50">
@@ -352,7 +345,11 @@ const obtenerUbicacionActual = () => {
         <button
           onClick={handlePlaceOrder}
           disabled={isSending || !isPhoneValid || (pickupInStore ? false : (!deliveryFee || !!error))}
-          className="flex h-14 w-full items-center justify-center rounded-full bg-black text-base font-bold text-[#ff751f] transition-transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+          className={`flex h-14 w-full items-center justify-center rounded-full bg-black text-base font-bold text-[#ff751f] transition-transform active:scale-[0.98] ${
+            !isSending && isPhoneValid && (pickupInStore || (deliveryFee && !error))
+              ? "btn-ready hover:scale-[1.02]" 
+              : "disabled:opacity-50 disabled:cursor-not-allowed"
+          }`}
         >
           {isSending ? "Procesando..." : "Confirmar Pedido"}
         </button>

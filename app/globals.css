@@ -47,3 +47,18 @@ body {
 .animate-pulse-warning {
   animation: pulse-warning 2s infinite;
 }
+
+@keyframes pulse-glow {
+  0%, 100% { 
+    box-shadow: 0 0 15px rgba(255, 117, 31, 0.4); 
+    transform: scale(1); 
+  }
+  50% { 
+    box-shadow: 0 0 30px rgba(255, 117, 31, 0.8); 
+    transform: scale(1.02); 
+  }
+}
+
+.btn-ready { 
+  animation: pulse-glow 2s ease-in-out infinite; 
+}
