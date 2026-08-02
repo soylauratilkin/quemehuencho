@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ArrowLeft, LocateFixed, MapPin, Check, Navigation, Store } from "lucide-react"
+import { ArrowLeft, LocateFixed, MapPin, Loader2, Check, Navigation, Store } from "lucide-react"
 import { formatPrice, calcularPrecioEnvio, fetchConfig, DEFAULT_CONFIG } from "@/lib/menu-data"
 import { useStore } from "./store"
 
@@ -13,7 +13,7 @@ export function CheckoutScreen() {
   const [address, setAddress] = useState(() => localStorage.getItem("qh_address") || orderDetails?.address || "")
   const [phone, setPhone] = useState(() => localStorage.getItem("qh_phone") || orderDetails?.phone || "")
   const [notes, setNotes] = useState(orderDetails?.notes || "")
-  
+  const [geoLoading, setGeoLoading] = useState(false)
   const [isCalculating, setIsCalculating] = useState(false)
   const [distanceKm, setDistanceKm] = useState(orderDetails?.distanceKm || 0)
   const [deliveryFee, setDeliveryFee] = useState(orderDetails?.deliveryFee || 0)
@@ -35,8 +35,9 @@ export function CheckoutScreen() {
 
   const total = subtotal + (pickupInStore ? 0 : deliveryFee)
 
-  // VALIDACIÓN ESTRICTA DE TELÉFONO (10-15 dígitos)
-  const isPhoneValid = /^\d{10,15}$/.test(phone.replace(/\s/g, ""))
+  // Validación estricta: 10 dígitos (ej: 2804007296) u 11 dígitos (ej: 92804007296)
+  const cleanPhone = phone.replace(/\D/g, "")
+  const isPhoneValid = /^\d{10,11}$/.test(cleanPhone)
 
   async function calcularDistanciaReal(direccionDestino: string) {
     try {
@@ -130,35 +131,80 @@ export function CheckoutScreen() {
   }
 
   // ==========================================
-  // LIMPIEZA INTELIGENTE DE TELÉFONO
+  // LIMPIEZA Y VALIDACIÓN DE TELÉFONO (CORREGIDA)
   // ==========================================
-// Función mejorada para limpiar teléfonos
-const limpiarTelefono = (valor: string) => {
-  if (!valor) return ""
-  
-  // 1. Quitar TODO lo que no sea número (incluyendo el +)
-  let limpio = valor.replace(/\D/g, "")
-  
-  // 2. Si empieza con 5454, quitar los primeros 2 dígitos (54 duplicado)
-  if (limpio.startsWith("5454")) {
-    limpio = limpio.substring(2)
+  const limpiarTelefono = (valor: string) => {
+    if (!valor) return ""
+    
+    // 1. Quitar TODO lo que no sea número
+    let limpio = valor.replace(/\D/g, "")
+    
+    // 2. Si el usuario pega un número con 549 o 54, se lo quitamos. 
+    // Queremos que solo vea y edite su número local.
+    if (limpio.startsWith("549")) {
+      limpio = limpio.substring(3)
+    } else if (limpio.startsWith("54")) {
+      limpio = limpio.substring(2)
+    }
+    
+    // 3. Limitar a 11 dígitos máximo (ej: 9 + 10 dígitos del celular)
+    if (limpio.length > 11) {
+      limpio = limpio.substring(0, 11)
+    }
+    
+    return limpio
   }
-  
-  // 3. Si empieza con 549 o 5411 (código Argentina + 9 para celular o 11 para CABA), está bien
-  // 4. Si no empieza con 54 y tiene 10+ dígitos, agregar 54 al principio
-  if (!limpio.startsWith("54") && limpio.length >= 10) {
-    limpio = "54" + limpio
+
+const obtenerUbicacionActual = () => {
+  if (!navigator.geolocation) {
+    alert("Tu navegador no soporta geolocalización. Por favor, ingresa la dirección manualmente.")
+    return
   }
+
+  setGeoLoading(true)
   
-  // 5. Limitar a 15 dígitos máximo (estándar internacional)
-  if (limpio.length > 15) {
-    limpio = limpio.substring(0, 15)
-  }
-  
-  return limpio
+  navigator.geolocation.getCurrentPosition(
+    async (position) => {
+      const { latitude, longitude } = position.coords
+      try {
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+        )
+        const data = await response.json()
+        
+        const calle = data.address?.road || ""
+        const numero = data.address?.house_number || ""
+        const direccionFormateada = `${calle} ${numero}`.trim()
+        
+        // ✅ Actualizar dirección
+        setAddress(direccionFormateada || "Ubicación detectada (ajustar manualmente)")
+        setAddressModified(true)
+        localStorage.setItem("qh_address", direccionFormateada)
+        
+        // ✅ RESETEAR el envío anterior (igual que cuando se escribe manualmente)
+        setDeliveryFee(0)
+        setDistanceKm(0)
+        setFoundAddress("")
+        setError("")
+        
+      } catch (error) {
+        console.error("Error obteniendo dirección:", error)
+        alert("No se pudo obtener la dirección exacta. Por favor, ingrésala manualmente.")
+      } finally {
+        setGeoLoading(false)
+      }
+    },
+    (error) => {
+      setGeoLoading(false)
+      if (error.code === 1) {
+        alert("Permiso de ubicación denegado. Por favor, ingrésala manualmente.")
+      } else {
+        alert("Error al obtener la ubicación. Inténtalo de nuevo.")
+      }
+    },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+  )
 }
-
-
 
   // ==========================================
   // PANTALLA DE CHECKOUT
@@ -195,53 +241,119 @@ const limpiarTelefono = (valor: string) => {
           </div>
         </section>
 
-        {/* DIRECCIÓN */}
-        {!pickupInStore && (
-          <section>
-            <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-gray-400">Dirección de entrega</h2>
-            <div className="space-y-3 rounded-3xl bg-[#111] p-4 shadow-sm ring-1 ring-[#333]">
-              <input value={address} onChange={(e) => { setAddress(e.target.value); setAddressModified(true); }} placeholder="Calle y número (ej: Gales 2233)" className="h-12 w-full rounded-2xl bg-[#1a1a1a] px-4 text-sm font-medium text-white outline-none ring-1 ring-[#333] focus:ring-2 focus:ring-[#ff751f]" />
-              
-              <button onClick={handleCalcularEnvio} disabled={isCalculating} className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-[#ff751f]/30 bg-[#ff751f]/10 text-sm font-bold text-[#ff751f] disabled:opacity-50">
-                <LocateFixed className="size-4" />{isCalculating ? "Calculando..." : "Calcular envío"}
-              </button>
-              
-              {foundAddress && !error && <div className="flex items-start gap-2 rounded-2xl bg-[#ff751f]/10 p-3 text-xs"><MapPin className="size-4 shrink-0 text-[#ff751f] mt-0.5" /><span className="text-[#ff751f]"><strong>Encontramos:</strong> {foundAddress}</span></div>}
-              {error && <p className="text-xs font-semibold text-red-500">{error}</p>}
-              
-              {deliveryFee > 0 && !error && (
-                <div className="flex items-center justify-between rounded-2xl bg-[#ff751f] p-4 text-black shadow-lg">
-                  <span className="text-sm font-bold">Envío ({distanceKm.toFixed(1)} km)</span>
-                  <span className="text-base font-extrabold">{formatPrice(deliveryFee)}</span>
-                </div>
-              )}
-            </div>
-          </section>
-        )}
+{/* DIRECCIÓN */}
+{!pickupInStore && (
+  <section>
+    <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-gray-400">Dirección de entrega</h2>
+    <div className="space-y-3 rounded-3xl bg-[#111] p-4 shadow-sm ring-1 ring-[#333]">
+      
+      {/* INPUT + BOTÓN GEOLOCALIZACIÓN */}
+      <div className="flex gap-2">
+        <input 
+          value={address} 
+          onChange={(e) => { setAddress(e.target.value); setAddressModified(true); }} 
+          placeholder="Calle y número (ej: Gales 2233)" 
+          className={`h-20 flex-1 rounded-2xl bg-[#1a1a1a] px-4 text-sm font-medium text-white outline-none ring-1 focus:ring-2 focus:ring-[#ff751f] transition-all ${
+            address.length === 0 && !deliveryFee
+              ? "input-needs-attention ring-[#ff751f]" 
+              : "ring-[#333]"
+          }`} 
+        />
+        
+        {/* BOTÓN GEOLOCALIZACIÓN VERTICAL */}
+        <button 
+          type="button"
+          onClick={obtenerUbicacionActual} 
+          disabled={geoLoading}
+          className={`h-20 w-20 shrink-0 rounded-2xl text-black font-bold flex flex-col items-center justify-center gap-1 transition-all py-2 ${
+            address.length === 0 && !deliveryFee
+              ? "bg-[#ff751f] hover:bg-[#e66a1c] button-needs-attention"
+              : "bg-[#ff751f] hover:bg-[#e66a1c] disabled:bg-gray-600"
+          }`}
+        >
+          {geoLoading ? (
+            <>
+              <Loader2 className="size-5 animate-spin" />
+              <span className="text-[10px] leading-tight text-center">Buscando...</span>
+            </>
+          ) : (
+            <>
+              <MapPin className="size-5" />
+              <span className="text-[10px] leading-tight text-center font-bold">
+                Usar mi<br />ubicación
+              </span>
+            </>
+          )}
+        </button>
+      </div>
+      
+      {/* BOTÓN CALCULAR ENVÍO */}
+      <button 
+        onClick={handleCalcularEnvio} 
+        disabled={isCalculating || address.length === 0}
+        className={`flex h-11 w-full items-center justify-center gap-2 rounded-2xl border text-sm font-bold transition-all ${
+          address.length > 0 && !deliveryFee && !isCalculating
+            ? "border-[#ff751f] bg-[#ff751f]/20 text-[#ff751f] button-needs-attention"
+            : "border-[#ff751f]/30 bg-[#ff751f]/10 text-[#ff751f] disabled:opacity-50"
+        }`}
+      >
+        <LocateFixed className="size-4" />{isCalculating ? "Calculando..." : "Calcular envío"}
+      </button>
+      
+      {foundAddress && !error && <div className="flex items-start gap-2 rounded-2xl bg-[#ff751f]/10 p-3 text-xs"><MapPin className="size-4 shrink-0 text-[#ff751f] mt-0.5" /><span className="text-[#ff751f]"><strong>Encontramos:</strong> {foundAddress}</span></div>}
+      {error && <p className="text-xs font-semibold text-red-500">{error}</p>}
+      
+      {deliveryFee > 0 && !error && (
+        <div className="flex items-center justify-between rounded-2xl bg-[#ff751f] p-4 text-black shadow-lg">
+          <span className="text-sm font-bold">Envío ({distanceKm.toFixed(1)} km)</span>
+          <span className="text-base font-extrabold">{formatPrice(deliveryFee)}</span>
+        </div>
+      )}
+    </div>
+  </section>
+)}
 
-        {/* TELÉFONO */}
-        <section>
-          <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-gray-400">Tu teléfono (Obligatorio)</h2>
-          <div className="relative">
-            <input 
-              value={phone} 
-              onChange={(e) => setPhone(limpiarTelefono(e.target.value))}
-              inputMode="numeric"
-              placeholder="Ej: 2804123456 (10 dígitos)" 
-              className={`h-12 w-full rounded-2xl px-4 text-sm font-medium outline-none ring-1 focus:ring-2 ${
-                phone.length > 0 && !isPhoneValid 
-                  ? "bg-red-900/20 text-red-400 ring-red-500" 
-                  : "bg-[#111] text-white ring-[#333] focus:ring-[#ff751f]"
-              }`} 
-            />
-            {phone.length > 0 && isPhoneValid && (
-              <Check className="absolute right-4 top-3.5 size-5 text-[#ff751f]" />
-            )}
-          </div>
-          <p className="mt-2 text-xs text-gray-500">
-            Ingresá solo números (mínimo 10 dígitos). Es vital para contactarte.
-          </p>
-        </section>
+{/* TELÉFONO */}
+<section>
+  <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-gray-400">Tu teléfono (Obligatorio)</h2>
+  <div className="relative">
+    <input 
+      value={phone} 
+      onChange={(e) => setPhone(limpiarTelefono(e.target.value))}
+      inputMode="numeric"
+      placeholder="Ej: 2804123456 (10 dígitos)" 
+      className={`h-12 w-full rounded-2xl px-4 text-sm font-medium outline-none ring-1 focus:ring-2 transition-all ${
+        !isPhoneValid 
+          ? "bg-red-900/20 text-red-400 ring-red-500" 
+          : deliveryFee > 0 && !isPhoneValid
+          ? "bg-[#111] text-white input-needs-attention ring-[#ff751f] focus:ring-[#ff751f]"
+          : "bg-[#111] text-white ring-[#333] focus:ring-[#ff751f]"
+      }`} 
+    />
+    {isPhoneValid && (
+      <Check className="absolute right-4 top-3.5 size-5 text-green-500" />
+    )}
+  </div>
+  
+  {/* MENSAJE DE AYUDA DINÁMICO */}
+  {!isPhoneValid && (
+    <p className={`mt-2 text-xs font-medium flex items-center gap-1 ${
+      deliveryFee > 0 ? "text-[#ff751f]" : "text-red-400"
+    }`}>
+      <span>⚠️</span>
+      {phone.length === 0 
+        ? "Ingresa tu teléfono para habilitar el botón de confirmar" 
+        : `Faltan ${10 - phone.length} dígito${10 - phone.length === 1 ? "" : "s"} (mínimo 10)`}
+    </p>
+  )}
+  
+  {isPhoneValid && (
+    <p className="mt-2 text-xs text-green-400 flex items-center gap-1">
+      <span>✅</span>
+      Teléfono válido
+    </p>
+  )}
+</section>
 
         {/* NOTAS */}
         <section>
@@ -259,7 +371,11 @@ const limpiarTelefono = (valor: string) => {
         <button
           onClick={handlePlaceOrder}
           disabled={isSending || !isPhoneValid || (pickupInStore ? false : (!deliveryFee || !!error))}
-          className="flex h-14 w-full items-center justify-center rounded-full bg-black text-base font-bold text-[#ff751f] transition-transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+          className={`flex h-14 w-full items-center justify-center rounded-full bg-black text-base font-bold text-[#ff751f] transition-transform active:scale-[0.98] ${
+            !isSending && isPhoneValid && (pickupInStore || (deliveryFee && !error))
+              ? "btn-ready hover:scale-[1.02]" 
+              : "disabled:opacity-50 disabled:cursor-not-allowed"
+          }`}
         >
           {isSending ? "Procesando..." : "Confirmar Pedido"}
         </button>
