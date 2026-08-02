@@ -119,12 +119,12 @@ export default function PedidosPage() {
       if (nuevosPedidos.length > 0) {
         const pedidoMasReciente = nuevosPedidos[0]
         if (ultimoPedidoId && pedidoMasReciente.id !== ultimoPedidoId) {
-          if (pedidoMasReciente.origen === "web") {
-            reproducirSonido()
-            if (clasificarPedido(pedidoMasReciente) === "envios") {
-              setEnviosNuevos(true)
-            }
+          // ✅ AHORA SUENA PARA CUALQUIER PEDIDO (Mesa, Delivery, Retiro)
+          reproducirSonido()
+          if (clasificarPedido(pedidoMasReciente) === "envios") {
+            setEnviosNuevos(true)
           }
+          
         }
         setUltimoPedidoId(pedidoMasReciente.id)
       }
@@ -320,7 +320,7 @@ export default function PedidosPage() {
   const labelAcumulado = estadoFiltro === "activos" ? "Pendiente" : "Facturado"
 
   return (
-    <div className="p-4 max-w-4xl mx-auto">
+    <div className="p-2">
       {/* ACUMULADO DE VENTAS */}
       <div className="mb-4 grid grid-cols-2 gap-2 md:grid-cols-4">
         <div className="rounded-2xl bg-[#111] p-3 ring-1 ring-[#333]">
