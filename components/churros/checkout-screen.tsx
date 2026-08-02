@@ -241,96 +241,119 @@ const obtenerUbicacionActual = () => {
           </div>
         </section>
 
-        {/* DIRECCIÓN */}
-        {!pickupInStore && (
-          <section>
-            <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-gray-400">Dirección de entrega</h2>
-            <div className="space-y-3 rounded-3xl bg-[#111] p-4 shadow-sm ring-1 ring-[#333]">
-              
-              {/* INPUT + BOTÓN GEOLOCALIZACIÓN (VERTICAL) */}
-              <div className="flex gap-2">
-                <input 
-                  value={address} 
-                  onChange={(e) => { setAddress(e.target.value); setAddressModified(true); }} 
-                  placeholder="Calle y número (ej: Gales 2233)" 
-                  className="h-20 flex-1 rounded-2xl bg-[#1a1a1a] px-4 text-sm font-medium text-white outline-none ring-1 ring-[#333] focus:ring-2 focus:ring-[#ff751f]" 
-                />
-                
-                {/* BOTÓN GEOLOCALIZACIÓN VERTICAL */}
-                <button 
-                  type="button"
-                  onClick={obtenerUbicacionActual} 
-                  disabled={geoLoading}
-                  className="h-20 w-20 shrink-0 rounded-2xl bg-[#ff751f] hover:bg-[#e66a1c] disabled:bg-gray-600 text-black font-bold flex flex-col items-center justify-center gap-1 transition-all py-2"
-                >
-                  {geoLoading ? (
-                    <>
-                      <Loader2 className="size-5 animate-spin" />
-                      <span className="text-[10px] leading-tight text-center">Buscando...</span>
-                    </>
-                  ) : (
-                    <>
-                      <MapPin className="size-5" />
-                      <span className="text-[10px] leading-tight text-center font-bold">
-                        Usar<br />mi ubicación
-                      </span>
-                    </>
-                  )}
-                </button>
-              </div>
-              
-              <button onClick={handleCalcularEnvio} disabled={isCalculating} className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-[#ff751f]/30 bg-[#ff751f]/10 text-sm font-bold text-[#ff751f] disabled:opacity-50">
-                <LocateFixed className="size-4" />{isCalculating ? "Calculando..." : "Calcular envío"}
-              </button>
-              
-              {foundAddress && !error && <div className="flex items-start gap-2 rounded-2xl bg-[#ff751f]/10 p-3 text-xs"><MapPin className="size-4 shrink-0 text-[#ff751f] mt-0.5" /><span className="text-[#ff751f]"><strong>Encontramos:</strong> {foundAddress}</span></div>}
-              {error && <p className="text-xs font-semibold text-red-500">{error}</p>}
-              
-              {deliveryFee > 0 && !error && (
-                <div className="flex items-center justify-between rounded-2xl bg-[#ff751f] p-4 text-black shadow-lg">
-                  <span className="text-sm font-bold">Envío ({distanceKm.toFixed(1)} km)</span>
-                  <span className="text-base font-extrabold">{formatPrice(deliveryFee)}</span>
-                </div>
-              )}
-            </div>
-          </section>
-        )}
+{/* DIRECCIÓN */}
+{!pickupInStore && (
+  <section>
+    <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-gray-400">Dirección de entrega</h2>
+    <div className="space-y-3 rounded-3xl bg-[#111] p-4 shadow-sm ring-1 ring-[#333]">
+      
+      {/* INPUT + BOTÓN GEOLOCALIZACIÓN */}
+      <div className="flex gap-2">
+        <input 
+          value={address} 
+          onChange={(e) => { setAddress(e.target.value); setAddressModified(true); }} 
+          placeholder="Calle y número (ej: Gales 2233)" 
+          className={`h-20 flex-1 rounded-2xl bg-[#1a1a1a] px-4 text-sm font-medium text-white outline-none ring-1 focus:ring-2 focus:ring-[#ff751f] transition-all ${
+            address.length === 0 && !deliveryFee
+              ? "input-needs-attention ring-[#ff751f]" 
+              : "ring-[#333]"
+          }`} 
+        />
+        
+        {/* BOTÓN GEOLOCALIZACIÓN VERTICAL */}
+        <button 
+          type="button"
+          onClick={obtenerUbicacionActual} 
+          disabled={geoLoading}
+          className={`h-20 w-20 shrink-0 rounded-2xl text-black font-bold flex flex-col items-center justify-center gap-1 transition-all py-2 ${
+            address.length === 0 && !deliveryFee
+              ? "bg-[#ff751f] hover:bg-[#e66a1c] button-needs-attention"
+              : "bg-[#ff751f] hover:bg-[#e66a1c] disabled:bg-gray-600"
+          }`}
+        >
+          {geoLoading ? (
+            <>
+              <Loader2 className="size-5 animate-spin" />
+              <span className="text-[10px] leading-tight text-center">Buscando...</span>
+            </>
+          ) : (
+            <>
+              <MapPin className="size-5" />
+              <span className="text-[10px] leading-tight text-center font-bold">
+                Usar mi<br />ubicación
+              </span>
+            </>
+          )}
+        </button>
+      </div>
+      
+      {/* BOTÓN CALCULAR ENVÍO */}
+      <button 
+        onClick={handleCalcularEnvio} 
+        disabled={isCalculating || address.length === 0}
+        className={`flex h-11 w-full items-center justify-center gap-2 rounded-2xl border text-sm font-bold transition-all ${
+          address.length > 0 && !deliveryFee && !isCalculating
+            ? "border-[#ff751f] bg-[#ff751f]/20 text-[#ff751f] button-needs-attention"
+            : "border-[#ff751f]/30 bg-[#ff751f]/10 text-[#ff751f] disabled:opacity-50"
+        }`}
+      >
+        <LocateFixed className="size-4" />{isCalculating ? "Calculando..." : "Calcular envío"}
+      </button>
+      
+      {foundAddress && !error && <div className="flex items-start gap-2 rounded-2xl bg-[#ff751f]/10 p-3 text-xs"><MapPin className="size-4 shrink-0 text-[#ff751f] mt-0.5" /><span className="text-[#ff751f]"><strong>Encontramos:</strong> {foundAddress}</span></div>}
+      {error && <p className="text-xs font-semibold text-red-500">{error}</p>}
+      
+      {deliveryFee > 0 && !error && (
+        <div className="flex items-center justify-between rounded-2xl bg-[#ff751f] p-4 text-black shadow-lg">
+          <span className="text-sm font-bold">Envío ({distanceKm.toFixed(1)} km)</span>
+          <span className="text-base font-extrabold">{formatPrice(deliveryFee)}</span>
+        </div>
+      )}
+    </div>
+  </section>
+)}
 
-        {/* TELÉFONO */}
-        <section>
-          <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-gray-400">Tu teléfono (Obligatorio)</h2>
-          <div className="relative">
-            <input 
-              value={phone} 
-              onChange={(e) => setPhone(limpiarTelefono(e.target.value))}
-              inputMode="numeric"
-              placeholder="Ej: 2804123456 (10 dígitos)" 
-              className={`h-12 w-full rounded-2xl px-4 text-sm font-medium outline-none ring-1 focus:ring-2 ${
-                !isPhoneValid 
-                  ? "bg-red-900/20 text-red-400 ring-red-500" 
-                  : "bg-[#111] text-white ring-[#333] focus:ring-[#ff751f]"
-              }`} 
-            />
-            {isPhoneValid && (
-              <Check className="absolute right-4 top-3.5 size-5 text-[#ff751f]" />
-            )}
-          </div>
-          {/* MENSAJE DE AYUDA DINÁMICO */}
-          {!isPhoneValid && (
-            <p className="mt-2 text-xs font-medium text-red-400 flex items-center gap-1">
-              <span>⚠️</span>
-              {phone.length === 0 
-                ? "Ingresa tu teléfono para habilitar el botón de confirmar" 
-                : `Faltan ${10 - phone.length} dígito${10 - phone.length === 1 ? "" : "s"} (mínimo 10)`}
-            </p>
-          )}
-          {isPhoneValid && (
-            <p className="mt-2 text-xs text-green-400 flex items-center gap-1">
-              <span>✅</span>
-              Teléfono válido
-            </p>
-          )}
-        </section>
+{/* TELÉFONO */}
+<section>
+  <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-gray-400">Tu teléfono (Obligatorio)</h2>
+  <div className="relative">
+    <input 
+      value={phone} 
+      onChange={(e) => setPhone(limpiarTelefono(e.target.value))}
+      inputMode="numeric"
+      placeholder="Ej: 2804123456 (10 dígitos)" 
+      className={`h-12 w-full rounded-2xl px-4 text-sm font-medium outline-none ring-1 focus:ring-2 transition-all ${
+        !isPhoneValid 
+          ? "bg-red-900/20 text-red-400 ring-red-500" 
+          : deliveryFee > 0 && !isPhoneValid
+          ? "bg-[#111] text-white input-needs-attention ring-[#ff751f] focus:ring-[#ff751f]"
+          : "bg-[#111] text-white ring-[#333] focus:ring-[#ff751f]"
+      }`} 
+    />
+    {isPhoneValid && (
+      <Check className="absolute right-4 top-3.5 size-5 text-green-500" />
+    )}
+  </div>
+  
+  {/* MENSAJE DE AYUDA DINÁMICO */}
+  {!isPhoneValid && (
+    <p className={`mt-2 text-xs font-medium flex items-center gap-1 ${
+      deliveryFee > 0 ? "text-[#ff751f]" : "text-red-400"
+    }`}>
+      <span>⚠️</span>
+      {phone.length === 0 
+        ? "Ingresa tu teléfono para habilitar el botón de confirmar" 
+        : `Faltan ${10 - phone.length} dígito${10 - phone.length === 1 ? "" : "s"} (mínimo 10)`}
+    </p>
+  )}
+  
+  {isPhoneValid && (
+    <p className="mt-2 text-xs text-green-400 flex items-center gap-1">
+      <span>✅</span>
+      Teléfono válido
+    </p>
+  )}
+</section>
 
         {/* NOTAS */}
         <section>
