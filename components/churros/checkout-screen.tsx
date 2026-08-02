@@ -251,26 +251,36 @@ const obtenerUbicacionActual = () => {
             <div className="space-y-3 rounded-3xl bg-[#111] p-4 shadow-sm ring-1 ring-[#333]">
               
               {/* INPUT + BOTÓN GEOLOCALIZACIÓN */}
-              <div className="flex gap-2">
+              <div className="flex gap-2 pb-6">
                 <input 
                   value={address} 
                   onChange={(e) => { setAddress(e.target.value); setAddressModified(true); }} 
                   placeholder="Calle y número (ej: Gales 2233)" 
                   className="h-12 flex-1 rounded-2xl bg-[#1a1a1a] px-4 text-sm font-medium text-white outline-none ring-1 ring-[#333] focus:ring-2 focus:ring-[#ff751f]" 
                 />
-                <button 
-                  type="button"
-                  onClick={obtenerUbicacionActual} 
-                  disabled={geoLoading}
-                  className="h-12 w-12 shrink-0 rounded-2xl bg-[#ff751f] hover:bg-[#e66a1c] disabled:bg-gray-600 text-black font-bold flex items-center justify-center transition-all"
-                  title="Usar mi ubicación actual"
-                >
-                  {geoLoading ? (
-                    <Loader2 className="size-5 animate-spin" />
-                  ) : (
-                    <MapPin className="size-5" />
-                  )}
-                </button>
+                {/* BOTÓN GEOLOCALIZACIÓN CON TOOLTIP */}
+                <div className="relative">
+                  <button 
+                    type="button"
+                    onClick={obtenerUbicacionActual} 
+                    disabled={geoLoading}
+                    className="h-12 w-12 shrink-0 rounded-2xl bg-[#ff751f] hover:bg-[#e66a1c] disabled:bg-gray-600 text-black font-bold flex items-center justify-center transition-all"
+                    title="Usar mi ubicación actual"
+                  >
+                    {geoLoading ? (
+                      <Loader2 className="size-5 animate-spin" />
+                    ) : (
+                      <MapPin className="size-5" />
+                    )}
+                  </button>
+                  
+                  {/* TOOLTIP / HINT */}
+                  <div className="absolute -bottom-6 left-0 right-0 text-center">
+                    <span className="text-[9px] text-gray-500 font-medium">
+                      📍 Usar mi ubicación
+                    </span>
+                  </div>
+                </div>
               </div>
               
               <button onClick={handleCalcularEnvio} disabled={isCalculating} className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-[#ff751f]/30 bg-[#ff751f]/10 text-sm font-bold text-[#ff751f] disabled:opacity-50">
@@ -300,18 +310,30 @@ const obtenerUbicacionActual = () => {
               inputMode="numeric"
               placeholder="Ej: 2804123456 (10 dígitos)" 
               className={`h-12 w-full rounded-2xl px-4 text-sm font-medium outline-none ring-1 focus:ring-2 ${
-                phone.length > 0 && !isPhoneValid 
+                !isPhoneValid 
                   ? "bg-red-900/20 text-red-400 ring-red-500" 
                   : "bg-[#111] text-white ring-[#333] focus:ring-[#ff751f]"
               }`} 
             />
-            {phone.length > 0 && isPhoneValid && (
+            {isPhoneValid && (
               <Check className="absolute right-4 top-3.5 size-5 text-[#ff751f]" />
             )}
           </div>
-          <p className="mt-2 text-xs text-gray-500">
-            Ingresá solo números (mínimo 10 dígitos). Es vital para contactarte.
-          </p>
+          {/* MENSAJE DE AYUDA DINÁMICO */}
+          {!isPhoneValid && (
+            <p className="mt-2 text-xs font-medium text-red-400 flex items-center gap-1">
+              <span>⚠️</span>
+              {phone.length === 0 
+                ? "Ingresa tu teléfono para habilitar el botón de confirmar" 
+                : `Faltan ${10 - phone.length} dígito${10 - phone.length === 1 ? "" : "s"} (mínimo 10)`}
+            </p>
+          )}
+          {isPhoneValid && (
+            <p className="mt-2 text-xs text-green-400 flex items-center gap-1">
+              <span>✅</span>
+              Teléfono válido
+            </p>
+          )}
         </section>
 
         {/* NOTAS */}
