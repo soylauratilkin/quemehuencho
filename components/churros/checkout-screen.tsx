@@ -177,15 +177,18 @@ const obtenerUbicacionActual = () => {
         
         const calle = data.address?.road || ""
         const numero = data.address?.house_number || ""
-        const ciudad = data.address?.city || data.address?.town || data.address?.village || "Puerto Madryn"
-        
         const direccionFormateada = `${calle} ${numero}`.trim()
         
-        // ✅ Usamos setAddress (tu setter real)
+        // ✅ Actualizar dirección
         setAddress(direccionFormateada || "Ubicación detectada (ajustar manualmente)")
-        
-        // Opcional: Guardar también en localStorage para futuros pedidos
+        setAddressModified(true)
         localStorage.setItem("qh_address", direccionFormateada)
+        
+        // ✅ RESETEAR el envío anterior (igual que cuando se escribe manualmente)
+        setDeliveryFee(0)
+        setDistanceKm(0)
+        setFoundAddress("")
+        setError("")
         
       } catch (error) {
         console.error("Error obteniendo dirección:", error)
