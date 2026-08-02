@@ -377,7 +377,7 @@ export default function PedidosPage() {
           >
             {/* Emojis ligeramente más pequeños para no robar espacio */}
             {f === "envios" && <span className="text-[10px]">🛵</span>}
-            {f === "mesas" && <span className="text-[10px]">🟣</span>}
+            {f === "mesas" && <span className="text-[10px]">☕</span>}
             {f === "mostrador" && <span className="text-[10px]">🏪</span>}
             
             <span>{f.charAt(0).toUpperCase() + f.slice(1)}</span>

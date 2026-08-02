@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ArrowLeft, LocateFixed, MapPin, Check, Navigation, Store } from "lucide-react"
+import { ArrowLeft, LocateFixed, MapPin, Loader2, Check, Navigation, Store } from "lucide-react"
 import { formatPrice, calcularPrecioEnvio, fetchConfig, DEFAULT_CONFIG } from "@/lib/menu-data"
 import { useStore } from "./store"
 
@@ -13,7 +13,7 @@ export function CheckoutScreen() {
   const [address, setAddress] = useState(() => localStorage.getItem("qh_address") || orderDetails?.address || "")
   const [phone, setPhone] = useState(() => localStorage.getItem("qh_phone") || orderDetails?.phone || "")
   const [notes, setNotes] = useState(orderDetails?.notes || "")
-  
+  const [geoLoading, setGeoLoading] = useState(false)
   const [isCalculating, setIsCalculating] = useState(false)
   const [distanceKm, setDistanceKm] = useState(orderDetails?.distanceKm || 0)
   const [deliveryFee, setDeliveryFee] = useState(orderDetails?.deliveryFee || 0)
@@ -158,7 +158,53 @@ const limpiarTelefono = (valor: string) => {
   return limpio
 }
 
+const obtenerUbicacionActual = () => {
+  if (!navigator.geolocation) {
+    alert("Tu navegador no soporta geolocalización. Por favor, ingresa la dirección manualmente.")
+    return
+  }
 
+  setGeoLoading(true)
+  
+  navigator.geolocation.getCurrentPosition(
+    async (position) => {
+      const { latitude, longitude } = position.coords
+      try {
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+        )
+        const data = await response.json()
+        
+        const calle = data.address?.road || ""
+        const numero = data.address?.house_number || ""
+        const ciudad = data.address?.city || data.address?.town || data.address?.village || "Puerto Madryn"
+        
+        const direccionFormateada = `${calle} ${numero}`.trim()
+        
+        // ✅ Usamos setAddress (tu setter real)
+        setAddress(direccionFormateada || "Ubicación detectada (ajustar manualmente)")
+        
+        // Opcional: Guardar también en localStorage para futuros pedidos
+        localStorage.setItem("qh_address", direccionFormateada)
+        
+      } catch (error) {
+        console.error("Error obteniendo dirección:", error)
+        alert("No se pudo obtener la dirección exacta. Por favor, ingrésala manualmente.")
+      } finally {
+        setGeoLoading(false)
+      }
+    },
+    (error) => {
+      setGeoLoading(false)
+      if (error.code === 1) {
+        alert("Permiso de ubicación denegado. Por favor, ingrésala manualmente.")
+      } else {
+        alert("Error al obtener la ubicación. Inténtalo de nuevo.")
+      }
+    },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+  )
+}
 
   // ==========================================
   // PANTALLA DE CHECKOUT
@@ -200,7 +246,29 @@ const limpiarTelefono = (valor: string) => {
           <section>
             <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-gray-400">Dirección de entrega</h2>
             <div className="space-y-3 rounded-3xl bg-[#111] p-4 shadow-sm ring-1 ring-[#333]">
-              <input value={address} onChange={(e) => { setAddress(e.target.value); setAddressModified(true); }} placeholder="Calle y número (ej: Gales 2233)" className="h-12 w-full rounded-2xl bg-[#1a1a1a] px-4 text-sm font-medium text-white outline-none ring-1 ring-[#333] focus:ring-2 focus:ring-[#ff751f]" />
+              
+              {/* INPUT + BOTÓN GEOLOCALIZACIÓN */}
+              <div className="flex gap-2">
+                <input 
+                  value={address} 
+                  onChange={(e) => { setAddress(e.target.value); setAddressModified(true); }} 
+                  placeholder="Calle y número (ej: Gales 2233)" 
+                  className="h-12 flex-1 rounded-2xl bg-[#1a1a1a] px-4 text-sm font-medium text-white outline-none ring-1 ring-[#333] focus:ring-2 focus:ring-[#ff751f]" 
+                />
+                <button 
+                  type="button"
+                  onClick={obtenerUbicacionActual} 
+                  disabled={geoLoading}
+                  className="h-12 w-12 shrink-0 rounded-2xl bg-[#ff751f] hover:bg-[#e66a1c] disabled:bg-gray-600 text-black font-bold flex items-center justify-center transition-all"
+                  title="Usar mi ubicación actual"
+                >
+                  {geoLoading ? (
+                    <Loader2 className="size-5 animate-spin" />
+                  ) : (
+                    <MapPin className="size-5" />
+                  )}
+                </button>
+              </div>
               
               <button onClick={handleCalcularEnvio} disabled={isCalculating} className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-[#ff751f]/30 bg-[#ff751f]/10 text-sm font-bold text-[#ff751f] disabled:opacity-50">
                 <LocateFixed className="size-4" />{isCalculating ? "Calculando..." : "Calcular envío"}
