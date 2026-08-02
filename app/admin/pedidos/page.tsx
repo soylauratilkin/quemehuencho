@@ -320,7 +320,7 @@ export default function PedidosPage() {
   const labelAcumulado = estadoFiltro === "activos" ? "Pendiente" : "Facturado"
 
   return (
-    <div className="p-2">
+    <div className="w-full p-2 md:p-4">
       {/* ACUMULADO DE VENTAS */}
       <div className="mb-4 grid grid-cols-2 gap-2 md:grid-cols-4">
         <div className="rounded-2xl bg-[#111] p-3 ring-1 ring-[#333]">
@@ -358,27 +358,30 @@ export default function PedidosPage() {
       </div>
 
       {/* FILTROS DE UBICACIÓN (AQUÍ ESTÁ LA MAGIA PARA DETENER EL SONIDO) */}
-      <div className="mb-4 flex gap-2 overflow-x-auto pb-2">
+      {/* FILTROS DE UBICACIÓN (Optimizado para celular) */}
+      <div className="mb-4 flex gap-2 overflow-x-auto pb-2 whitespace-nowrap">
         {(["todos", "mostrador", "mesas", "envios"] as Filtro[]).map((f) => (
           <button
             key={f}
             onClick={() => {
               setFiltro(f)
-              // ✅ AQUÍ DETENEMOS EL SONIDO AL TOCAR CUALQUIER PESTAÑA
               if (alarmaActiva) detenerSonido()
             }}
-            className={`shrink-0 rounded-full px-4 py-2 text-xs font-bold transition-all flex items-center gap-1 ${
+            className={`shrink-0 rounded-full px-3 py-1.5 text-[11px] md:text-xs font-bold transition-all flex items-center gap-1 border ${
               filtro === f 
-                ? "bg-[#ff751f] text-black" 
+                ? "bg-[#ff751f] text-black border-[#ff751f]" 
                 : f === "envios" && enviosNuevos 
-                ? "bg-red-500 text-white animate-pulse"
-                : "bg-[#1a1a1a] text-gray-300"
+                ? "bg-red-500 text-white border-red-500 animate-pulse"
+                : "bg-[#1a1a1a] text-gray-300 border-[#333]"
             }`}
           >
-            {f === "envios" && "🛵 "}
-            {f === "mesas" && "🟣 "}
-            {f === "mostrador" && "🏪 "}
-            {f.charAt(0).toUpperCase() + f.slice(1)} ({contadores[f]})
+            {/* Emojis ligeramente más pequeños para no robar espacio */}
+            {f === "envios" && <span className="text-[10px]">🛵</span>}
+            {f === "mesas" && <span className="text-[10px]">🟣</span>}
+            {f === "mostrador" && <span className="text-[10px]">🏪</span>}
+            
+            <span>{f.charAt(0).toUpperCase() + f.slice(1)}</span>
+            <span className="opacity-70">({contadores[f]})</span>
           </button>
         ))}
       </div>
