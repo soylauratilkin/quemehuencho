@@ -247,30 +247,33 @@ const obtenerUbicacionActual = () => {
             <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-gray-400">Dirección de entrega</h2>
             <div className="space-y-3 rounded-3xl bg-[#111] p-4 shadow-sm ring-1 ring-[#333]">
               
-              {/* INPUT + BOTÓN GEOLOCALIZACIÓN */}
-              <div className="flex gap-2 pb-6">
+              {/* INPUT + BOTÓN GEOLOCALIZACIÓN (VERTICAL) */}
+              <div className="flex gap-2">
                 <input 
                   value={address} 
                   onChange={(e) => { setAddress(e.target.value); setAddressModified(true); }} 
                   placeholder="Calle y número (ej: Gales 2233)" 
-                  className="h-12 flex-1 rounded-2xl bg-[#1a1a1a] px-4 text-sm font-medium text-white outline-none ring-1 ring-[#333] focus:ring-2 focus:ring-[#ff751f]" 
+                  className="h-20 flex-1 rounded-2xl bg-[#1a1a1a] px-4 text-sm font-medium text-white outline-none ring-1 ring-[#333] focus:ring-2 focus:ring-[#ff751f]" 
                 />
-                {/* BOTÓN GEOLOCALIZACIÓN CON TOOLTIP */}
+                
+                {/* BOTÓN GEOLOCALIZACIÓN VERTICAL */}
                 <button 
                   type="button"
                   onClick={obtenerUbicacionActual} 
                   disabled={geoLoading}
-                  className="h-12 w-full sm:w-auto px-4 shrink-0 rounded-2xl bg-[#ff751f] hover:bg-[#e66a1c] disabled:bg-gray-600 text-black font-bold flex items-center justify-center gap-2 transition-all"
+                  className="h-20 w-20 shrink-0 rounded-2xl bg-[#ff751f] hover:bg-[#e66a1c] disabled:bg-gray-600 text-black font-bold flex flex-col items-center justify-center gap-1 transition-all py-2"
                 >
                   {geoLoading ? (
                     <>
                       <Loader2 className="size-5 animate-spin" />
-                      <span className="text-sm">Buscando...</span>
+                      <span className="text-[10px] leading-tight text-center">Buscando...</span>
                     </>
                   ) : (
                     <>
                       <MapPin className="size-5" />
-                      <span className="text-sm">Usar mi ubicación</span>
+                      <span className="text-[10px] leading-tight text-center font-bold">
+                        Usar<br />mi ubicación
+                      </span>
                     </>
                   )}
                 </button>
