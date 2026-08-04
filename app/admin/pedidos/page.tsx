@@ -24,7 +24,7 @@ type Pedido = {
   rowNumber?: number
   confirmadoCliente?: string
   listoRetiro?: string
-  Telefono?: string
+  telefono?: string
 }
 
 type Filtro = "todos" | "mostrador" | "mesas" | "envios"
@@ -117,7 +117,7 @@ export default function PedidosPage() {
       const res = await fetch("/api/admin/pedidos")
       const data = await res.json()
       const nuevosPedidos: Pedido[] = data.pedidos || []
-      
+
       if (nuevosPedidos.length > 0) {
         const pedidoMasReciente = nuevosPedidos[0]
         if (ultimoPedidoId && pedidoMasReciente.id !== ultimoPedidoId) {
@@ -210,7 +210,7 @@ export default function PedidosPage() {
   }
 
 function avisarListoDoblefila(pedido: Pedido, orderId: string) {
-  const rawPhone = pedido.Telefono
+  const rawPhone = pedido.telefono
   if (!rawPhone) {
     alert("⚠️ Este pedido no tiene teléfono registrado. Editá el pedido para agregarlo.")
     return
@@ -229,7 +229,7 @@ function avisarListoDoblefila(pedido: Pedido, orderId: string) {
 }
 
 function avisarListoDelivery(pedido: Pedido, orderId: string) {
-  const rawPhone = pedido.Telefono
+  const rawPhone = pedido.telefono
   if (!rawPhone) {
     alert("⚠️ Este pedido no tiene teléfono registrado.")
     return
@@ -322,7 +322,7 @@ function clasificarPedido(p: Pedido): "mostrador" | "mesas" | "envios" {
     setItemsEdit(items)
     setPedidoEditando(pedido)
     setUbicacionEdit(pedido.ubicacion)
-    setTelefonoEdit(pedido.Telefono || "") // ✅ NUEVO
+    setTelefonoEdit(pedido.telefono || "") // ✅ NUEVO
     setEditandoId(pedido.id)
   }
 
