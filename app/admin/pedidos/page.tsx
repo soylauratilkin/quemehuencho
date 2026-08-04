@@ -42,6 +42,7 @@ export default function PedidosPage() {
   const [pedidoEditando, setPedidoEditando] = useState<Pedido | null>(null)
   const [itemsEdit, setItemsEdit] = useState<PedidoItem[]>([])
   const [ubicacionEdit, setUbicacionEdit] = useState<string>("")
+  const [telefonoEdit, setTelefonoEdit] = useState<string>("")
   
   // Estados de notificación
   const [reenviadoCliente, setReenviadoCliente] = useState<string | null>(null)
@@ -224,6 +225,21 @@ function avisarListoDoblefila(phone: string | undefined, orderId: string) {
   window.open(`https://wa.me/${cleanPhone}?text=${message}`, "_blank")
 }
 
+function avisarListoDelivery(phone: string | undefined, orderId: string) {
+  if (!phone) return alert("Este pedido no tiene teléfono registrado.")
+  
+  let cleanPhone = phone.replace(/\D/g, "")
+  if (!cleanPhone.startsWith("54")) {
+    cleanPhone = "54" + cleanPhone
+  }
+  
+  const message = encodeURIComponent(
+    `🛵 ¡Hola! El pedido ${orderId} está listo para retirar en el local.\n\nDirección: Roque Sáenz Peña 212, Puerto Madryn.`
+  )
+  
+  window.open(`https://wa.me/${cleanPhone}?text=${message}`, "_blank")
+}
+
 function clasificarPedido(p: Pedido): "mostrador" | "mesas" | "envios" {
   const ub = p.ubicacion?.toLowerCase() || ""
   // ✅ Agregamos "doblefila" para que caiga en la pestaña de envíos
@@ -299,6 +315,7 @@ function clasificarPedido(p: Pedido): "mostrador" | "mesas" | "envios" {
     setItemsEdit(items)
     setPedidoEditando(pedido)
     setUbicacionEdit(pedido.ubicacion)
+    setTelefonoEdit(pedido.phone || "") // ✅ NUEVO
     setEditandoId(pedido.id)
   }
 
@@ -320,22 +337,34 @@ function clasificarPedido(p: Pedido): "mostrador" | "mesas" | "envios" {
     return items.reduce((acc, item) => acc + ((Number(item.price) || 0) * (Number(item.quantity) || 0)), 0)
   }
 
-  async function guardarEdicion() {
-    if (!editandoId || itemsEdit.length === 0) return
-    const itemsValidos = itemsEdit.filter(i => i.name && i.name.trim() !== "" && i.productId)
-    if (itemsValidos.length === 0) return alert("Debe haber al menos un item válido")
-    
-    await fetch("/api/admin/pedidos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "editarPedido", id: editandoId, items: itemsValidos, ubicacion: ubicacionEdit })
-    })
-    setEditandoId(null)
-    setPedidoEditando(null)
-    setItemsEdit([])
-    setUbicacionEdit("")
-    cargarPedidos()
+async function guardarEdicion() {
+  if (!editandoId || itemsEdit.length === 0) return
+  const itemsValidos = itemsEdit.filter(i => i.name && i.name.trim() !== "" && i.productId)
+  
+  if (itemsValidos.length === 0) {
+    alert("Debe haber al menos un item válido")
+    return
   }
+  
+  await fetch("/api/admin/pedidos", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      action: "editarPedido",
+      id: editandoId,
+      items: itemsValidos,
+      ubicacion: ubicacionEdit,
+      telefono: telefonoEdit // ✅ NUEVO
+    })
+  })
+  
+  setEditandoId(null)
+  setPedidoEditando(null)
+  setItemsEdit([])
+  setUbicacionEdit("")
+  setTelefonoEdit("") // ✅ NUEVO
+  cargarPedidos()
+}
 
   const labelAcumulado = estadoFiltro === "activos" ? "Pendiente" : "Facturado"
 
@@ -480,8 +509,27 @@ function clasificarPedido(p: Pedido): "mostrador" | "mesas" | "envios" {
                     <div className="mb-2">
                       <label className="text-[10px] font-bold uppercase text-gray-500 mb-1 block">Ubicación</label>
                       <select value={ubicacionEdit} onChange={(e) => setUbicacionEdit(e.target.value)} className="w-full rounded-lg bg-[#0a0a0a] px-3 py-2 text-xs text-white ring-1 ring-[#333]">
-                        {["Mostrador", "Mesa 1", "Mesa 2", "Mesa 3", "Mesa 4", "Mesa 5", "Mesa 6"].map(m => <option key={m} value={m}>{m}</option>)}
+                        {["Mostrador", "Mesa 1", "Mesa 2", "Mesa 3", "Mesa 4", "Mesa 5", "Mesa 6", "Doblefila Express", "Retiro en local", "Envio"].map(m => <option key={m} value={m}>{m}</option>)}
                       </select>
+                    </div>
+
+                    {/* ✅ CAMPO DE TELÉFONO */}
+                    <div className="mb-2">
+                      <label className="text-[10px] font-bold uppercase text-gray-500 mb-1 block">Teléfono</label>
+                      <input
+                        type="tel"
+                        value={telefonoEdit}
+                        onChange={(e) => setTelefonoEdit(e.target.value.replace(/\D/g, ""))}
+                        placeholder="Ej: 5492804007296"
+                        className={`w-full rounded-lg bg-[#0a0a0a] px-3 py-2 text-xs text-white ring-1 transition-all ${
+                          telefonoEdit.length > 0 && (telefonoEdit.length < 10 || telefonoEdit.length > 15)
+                            ? "ring-red-500"
+                            : "ring-[#333]"
+                        }`}
+                      />
+                      {telefonoEdit.length > 0 && (telefonoEdit.length < 10 || telefonoEdit.length > 15) && (
+                        <p className="text-[9px] text-red-400 mt-1">⚠️ Teléfono inválido (debe tener 10-15 dígitos)</p>
+                      )}
                     </div>
                     {itemsEdit.map((item, idx) => (
                       <div key={idx} className="rounded-lg bg-[#1a1a1a] p-2 space-y-2">
@@ -512,35 +560,193 @@ function clasificarPedido(p: Pedido): "mostrador" | "mesas" | "envios" {
                   </div>
                 )}
 
-                {/* ACCIONES */}
+                {/* ACCIONES - ORDENADAS SEGÚN TIPO DE PEDIDO */}
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <div className="flex gap-2 flex-wrap">
-                    {/* AVISAR LISTO DOBLEFILA (Solo para doblefila y no entregado) */}
+                    
+                    {/* ===== DOBLEFILA EXPRESS ===== */}
                     {isDoblefila && !pedido.entregado && (
-                      <button
-                        onClick={() => avisarListoDoblefila(pedido.phone, pedido.id)}
-                        className="flex size-10 items-center justify-center rounded-full bg-green-500 text-white hover:bg-green-600 transition-all"
-                        title="Avisar al cliente que está listo para retirar en vereda"
-                      >
-                        <Car className="size-5" />
-                      </button>
+                      <>
+                        {/* 1. Confirmar al cliente */}
+                        {pedido.origen === "web" && (
+                          <button
+                            onClick={() => reenviarCliente(pedido.id)}
+                            className={`flex size-10 items-center justify-center rounded-full transition-all ${
+                              pedido.confirmadoCliente ? "bg-green-500 text-white" : "bg-blue-500 text-white hover:bg-blue-600"
+                            }`}
+                            title="Enviar confirmación al cliente"
+                          >
+                            <Send className="size-5" />
+                          </button>
+                        )}
+                        
+                        {/* 2. Avisar que está listo (WhatsApp) */}
+                        <button
+                          onClick={() => avisarListoDoblefila(pedido.phone, pedido.id)}
+                          className="flex size-10 items-center justify-center rounded-full bg-green-500 text-white hover:bg-green-600 transition-all"
+                          title="Avisar al cliente que está listo para retirar en vereda"
+                        >
+                          <Car className="size-5" />
+                        </button>
+                        
+                        {/* 3. Marcar como entregado */}
+                        <button
+                          onClick={() => toggleEstado(pedido.id, "entregado")}
+                          className={`flex size-10 items-center justify-center rounded-full transition-all ${
+                            pedido.entregado ? "bg-green-500 text-white" : "bg-orange-500 text-white hover:bg-orange-600"
+                          }`}
+                          title="Marcar como entregado"
+                        >
+                          <HandCoins className="size-5" />
+                        </button>
+                        
+                        {/* 4. Marcar como pagado */}
+                        <button
+                          onClick={() => toggleEstado(pedido.id, "pagado")}
+                          className={`flex size-10 items-center justify-center rounded-full transition-all ${
+                            pedido.pagado ? "bg-green-500 text-white" : "bg-red-500 text-white hover:bg-red-600"
+                          }`}
+                          title="Marcar como pagado"
+                        >
+                          <Banknote className="size-5" />
+                        </button>
+                      </>
                     )}
-                    <button onClick={() => toggleEstado(pedido.id, "entregado")} className={`flex size-10 items-center justify-center rounded-full transition-all ${pedido.entregado ? "bg-green-500 text-white" : "bg-red-500 text-white hover:bg-red-600"}`} title="Entregado"><HandCoins className="size-5" /></button>
-                    <button onClick={() => toggleEstado(pedido.id, "pagado")} className={`flex size-10 items-center justify-center rounded-full transition-all ${pedido.pagado ? "bg-green-500 text-white" : "bg-red-500 text-white hover:bg-red-600"}`} title="Pagado"><Banknote className="size-5" /></button>
-                    {pedido.origen === "web" && (
-                      <button onClick={() => reenviarCliente(pedido.id)} className={`flex size-10 items-center justify-center rounded-full transition-all ${pedido.confirmadoCliente ? "bg-green-500 text-white" : "bg-red-500 text-white hover:bg-red-600"}`} title="Confirmar al cliente"><Send className="size-5" /></button>
+
+                    {/* ===== RETIRO EN LOCAL ===== */}
+                    {pedido.ubicacion?.toLowerCase().includes("retiro") && !isDoblefila && !pedido.entregado && (
+                      <>
+                        {/* 1. Confirmar al cliente */}
+                        {pedido.origen === "web" && (
+                          <button
+                            onClick={() => reenviarCliente(pedido.id)}
+                            className={`flex size-10 items-center justify-center rounded-full transition-all ${
+                              pedido.confirmadoCliente ? "bg-green-500 text-white" : "bg-blue-500 text-white hover:bg-blue-600"
+                            }`}
+                            title="Enviar confirmación al cliente"
+                          >
+                            <Send className="size-5" />
+                          </button>
+                        )}
+                        
+                        {/* 2. Avisar que está listo para retirar */}
+                        {pedido.origen === "web" && (
+                          <button
+                            onClick={() => listoRetiro(pedido.id)}
+                            className={`flex size-10 items-center justify-center rounded-full transition-all ${
+                              pedido.listoRetiro ? "bg-green-500 text-white" : "bg-orange-500 text-white hover:bg-orange-600"
+                            }`}
+                            title="Avisar al cliente que está listo para retirar"
+                          >
+                            <Check className="size-5" />
+                          </button>
+                        )}
+                        
+                        {/* 3. Marcar como entregado */}
+                        <button
+                          onClick={() => toggleEstado(pedido.id, "entregado")}
+                          className={`flex size-10 items-center justify-center rounded-full transition-all ${
+                            pedido.entregado ? "bg-green-500 text-white" : "bg-orange-500 text-white hover:bg-orange-600"
+                          }`}
+                          title="Marcar como entregado"
+                        >
+                          <HandCoins className="size-5" />
+                        </button>
+                        
+                        {/* 4. Marcar como pagado */}
+                        <button
+                          onClick={() => toggleEstado(pedido.id, "pagado")}
+                          className={`flex size-10 items-center justify-center rounded-full transition-all ${
+                            pedido.pagado ? "bg-green-500 text-white" : "bg-red-500 text-white hover:bg-red-600"
+                          }`}
+                          title="Marcar como pagado"
+                        >
+                          <Banknote className="size-5" />
+                        </button>
+                      </>
                     )}
-                    {clasificarPedido(pedido) === "envios" && !pedido.ubicacion?.toLowerCase().includes("retiro") && pedido.origen === "web" && (
-                      <button onClick={() => reenviarDelivery(pedido.id)} className={`flex size-10 items-center justify-center rounded-full transition-all ${reenviadoDelivery === pedido.id ? "bg-green-500 text-white" : "bg-red-500 text-white hover:bg-red-600"}`} title="Reenviar al delivery"><Bike className="size-5" /></button>
-                    )}
-                    {pedido.ubicacion?.toLowerCase().includes("retiro") && pedido.origen === "web" && (
-                      <button onClick={() => listoRetiro(pedido.id)} className={`flex size-10 items-center justify-center rounded-full transition-all ${pedido.listoRetiro ? "bg-green-500 text-white" : "bg-orange-500 text-white hover:bg-orange-600"}`} title="Listo para retiro"><Check className="size-5" /></button>
+
+                    {/* ===== DELIVERY ===== */}
+                    {clasificarPedido(pedido) === "envios" && !isDoblefila && !pedido.ubicacion?.toLowerCase().includes("retiro") && !pedido.entregado && (
+                      <>
+                        {/* 1. Confirmar al cliente */}
+                        {pedido.origen === "web" && (
+                          <button
+                            onClick={() => reenviarCliente(pedido.id)}
+                            className={`flex size-10 items-center justify-center rounded-full transition-all ${
+                              pedido.confirmadoCliente ? "bg-green-500 text-white" : "bg-blue-500 text-white hover:bg-blue-600"
+                            }`}
+                            title="Enviar confirmación al cliente"
+                          >
+                            <Send className="size-5" />
+                          </button>
+                        )}
+                        
+                        {/* 2. Reenviar al delivery */}
+                        {pedido.origen === "web" && (
+                          <button
+                            onClick={() => reenviarDelivery(pedido.id)}
+                            className={`flex size-10 items-center justify-center rounded-full transition-all ${
+                              reenviadoDelivery === pedido.id ? "bg-green-500 text-white" : "bg-purple-500 text-white hover:bg-purple-600"
+                            }`}
+                            title="Reenviar al delivery"
+                          >
+                            <Bike className="size-5" />
+                          </button>
+                        )}
+                        
+                        {/* 3. Avisar al delivery que está listo */}
+                        <button
+                          onClick={() => avisarListoDelivery(pedido.phone, pedido.id)}
+                          className="flex size-10 items-center justify-center rounded-full bg-orange-500 text-white hover:bg-orange-600 transition-all"
+                          title="Avisar al delivery que el pedido está listo"
+                        >
+                          <Check className="size-5" />
+                        </button>
+                        
+                        {/* 4. Marcar como entregado */}
+                        <button
+                          onClick={() => toggleEstado(pedido.id, "entregado")}
+                          className={`flex size-10 items-center justify-center rounded-full transition-all ${
+                            pedido.entregado ? "bg-green-500 text-white" : "bg-orange-500 text-white hover:bg-orange-600"
+                          }`}
+                          title="Marcar como entregado"
+                        >
+                          <HandCoins className="size-5" />
+                        </button>
+                        
+                        {/* 5. Marcar como pagado */}
+                        <button
+                          onClick={() => toggleEstado(pedido.id, "pagado")}
+                          className={`flex size-10 items-center justify-center rounded-full transition-all ${
+                            pedido.pagado ? "bg-green-500 text-white" : "bg-red-500 text-white hover:bg-red-600"
+                          }`}
+                          title="Marcar como pagado"
+                        >
+                          <Banknote className="size-5" />
+                        </button>
+                      </>
                     )}
                   </div>
+
+                  {/* BOTONES DE EDICIÓN Y BORRADO (siempre visibles si no está pagado) */}
                   {!isEditing && (
                     <div className="flex gap-2">
-                      {!pedido.pagado && (<button onClick={() => empezarEditar(pedido)} className="flex items-center gap-1 rounded-full bg-[#1a1a1a] px-3 py-1.5 text-xs font-bold text-gray-300 hover:bg-[#2a2a2a]"><Edit3 className="size-3" /> Editar</button>)}
-                      <button onClick={() => borrarPedido(pedido.id)} className="flex items-center gap-1 rounded-full bg-red-500/20 px-3 py-1.5 text-xs font-bold text-red-400 hover:bg-red-500/30"><Trash2 className="size-3" /> Borrar</button>
+                      {!pedido.pagado && (
+                        <button
+                          onClick={() => empezarEditar(pedido)}
+                          className="flex items-center gap-1 rounded-full bg-[#1a1a1a] px-3 py-1.5 text-xs font-bold text-gray-300 hover:bg-[#2a2a2a]"
+                        >
+                          <Edit3 className="size-3" /> Editar
+                        </button>
+                      )}
+                      
+                      <button
+                        onClick={() => borrarPedido(pedido.id)}
+                        className="flex items-center gap-1 rounded-full bg-red-500/20 px-3 py-1.5 text-xs font-bold text-red-400 hover:bg-red-500/30"
+                      >
+                        <Trash2 className="size-3" /> Borrar
+                      </button>
                     </div>
                   )}
                 </div>
