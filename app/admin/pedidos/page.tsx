@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react"
-import { HandCoins, Banknote, Edit3, Plus, Trash2, Check, Minus, Send, Bike } from "lucide-react"
+import { HandCoins, Banknote, Edit3, Plus, Trash2, Check, Minus, Send, Bike, Car } from "lucide-react"
 import { formatPrice, fetchProductsFromGoogleSheet, MENU_CSV_URL, type Product } from "@/lib/menu-data"
 
 type PedidoItem = {
@@ -24,6 +24,7 @@ type Pedido = {
   rowNumber?: number
   confirmadoCliente?: string
   listoRetiro?: string
+  phone?: string
 }
 
 type Filtro = "todos" | "mostrador" | "mesas" | "envios"
@@ -207,12 +208,31 @@ export default function PedidosPage() {
     }
   }
 
-  function clasificarPedido(p: Pedido): "mostrador" | "mesas" | "envios" {
-    const ub = p.ubicacion?.toLowerCase() || ""
-    if (p.origen === "web" || ub.includes("envio") || ub.includes("retiro") || ub === "web") return "envios"
-    if (ub === "mostrador") return "mostrador"
-    return "mesas"
+function avisarListoDoblefila(phone: string | undefined, orderId: string) {
+  if (!phone) return alert("Este pedido no tiene teléfono registrado.")
+  
+  // Limpiar y formatear teléfono para WhatsApp
+  let cleanPhone = phone.replace(/\D/g, "")
+  if (!cleanPhone.startsWith("54")) {
+    cleanPhone = "54" + cleanPhone
   }
+  
+  const message = encodeURIComponent(
+    `🟢 ¡Hola! Tu pedido Doblefila Express está listo.\n\nCuando llegues a Roque Sáenz Peña 212, respondé este mensaje y salimos a la vereda a entregártelo. ¡No hace falta que estaciones!\n\nID: ${orderId}`
+  )
+  
+  window.open(`https://wa.me/${cleanPhone}?text=${message}`, "_blank")
+}
+
+function clasificarPedido(p: Pedido): "mostrador" | "mesas" | "envios" {
+  const ub = p.ubicacion?.toLowerCase() || ""
+  // ✅ Agregamos "doblefila" para que caiga en la pestaña de envíos
+  if (p.origen === "web" || ub.includes("envio") || ub.includes("retiro") || ub === "web" || ub.includes("doblefila")) {
+    return "envios"
+  }
+  if (ub === "mostrador") return "mostrador"
+  return "mesas"
+}
 
   // 🚀 OPTIMIZACIÓN CLAVE: useMemo evita recalcular esto en cada render
   const pedidosHoy = useMemo(() => {
@@ -399,6 +419,7 @@ export default function PedidosPage() {
         <div className="space-y-3">
           {pedidosFiltrados.map((pedido) => {
             const isEditing = editandoId === pedido.id
+            const isDoblefila = pedido.ubicacion?.toLowerCase().includes("doblefila")
             let itemsMostrar: PedidoItem[] = pedido.items || []
             if (itemsMostrar.length === 0 && pedido.detalle) {
               itemsMostrar = pedido.detalle.split(" | ").map((d) => {
@@ -414,12 +435,29 @@ export default function PedidosPage() {
             const productosDisponibles = getProductosDisponibles(pedido.origen)
 
             return (
-              <div key={pedido.id} className={`rounded-2xl p-4 transition-all ${pedido.pagado ? "bg-green-950/20 ring-1 ring-green-500/30 opacity-60" : pedido.entregado ? "bg-blue-950/30 ring-1 ring-blue-500/30" : (pedido.origen === "mesa") ? "bg-[#a855f7]/10 border-2 border-[#a855f7] shadow-[0_0_15px_rgba(168,85,247,0.3)]" : "bg-[#111] ring-1 ring-[#333]"}`}>
+              <div
+                key={pedido.id}
+                className={`rounded-2xl p-4 transition-all ${
+                  pedido.pagado 
+                    ? "bg-green-950/20 ring-1 ring-green-500/30 opacity-60"
+                    : pedido.entregado 
+                    ? "bg-blue-950/30 ring-1 ring-blue-500/30" 
+                    : isDoblefila
+                    ? "bg-green-900/20 border-2 border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.3)]" // 🟢 VERDE DOBLEFILA
+                    : (pedido.origen === "mesa")
+                    ? "bg-[#a855f7]/10 border-2 border-[#a855f7] shadow-[0_0_15px_rgba(168,85,247,0.3)]"
+                    : "bg-[#111] ring-1 ring-[#333]"
+                }`}
+              >
                 {/* HEADER DEL PEDIDO */}
                 <div className="mb-3 flex items-start justify-between gap-2">
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="rounded-full bg-[#ff751f] px-2 py-0.5 text-[10px] font-bold text-black">{pedido.ubicacion}</span>
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                        isDoblefila ? "bg-green-500 text-black" : "bg-[#ff751f] text-black"
+                      }`}>
+                        {pedido.ubicacion}
+                      </span>
                       <span className="text-[10px] text-gray-500">{pedido.fecha}</span>
                     </div>
                     <p className="mt-1 text-[10px] font-mono text-gray-500">{pedido.id}</p>
@@ -477,6 +515,16 @@ export default function PedidosPage() {
                 {/* ACCIONES */}
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <div className="flex gap-2 flex-wrap">
+                    {/* AVISAR LISTO DOBLEFILA (Solo para doblefila y no entregado) */}
+                    {isDoblefila && !pedido.entregado && (
+                      <button
+                        onClick={() => avisarListoDoblefila(pedido.phone, pedido.id)}
+                        className="flex size-10 items-center justify-center rounded-full bg-green-500 text-white hover:bg-green-600 transition-all"
+                        title="Avisar al cliente que está listo para retirar en vereda"
+                      >
+                        <Car className="size-5" />
+                      </button>
+                    )}
                     <button onClick={() => toggleEstado(pedido.id, "entregado")} className={`flex size-10 items-center justify-center rounded-full transition-all ${pedido.entregado ? "bg-green-500 text-white" : "bg-red-500 text-white hover:bg-red-600"}`} title="Entregado"><HandCoins className="size-5" /></button>
                     <button onClick={() => toggleEstado(pedido.id, "pagado")} className={`flex size-10 items-center justify-center rounded-full transition-all ${pedido.pagado ? "bg-green-500 text-white" : "bg-red-500 text-white hover:bg-red-600"}`} title="Pagado"><Banknote className="size-5" /></button>
                     {pedido.origen === "web" && (
