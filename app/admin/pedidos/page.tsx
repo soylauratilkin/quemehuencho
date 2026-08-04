@@ -580,7 +580,9 @@ async function guardarEdicion() {
                         )}
                         
                         {!pedido.entregado && (
-                          <button onClick={() => toggleEstado(pedido.id, "entregado")} className="flex size-10 items-center justify-center rounded-full bg-orange-500 text-white hover:bg-orange-600 transition-all" title="Marcar como entregado">
+                          <button onClick={() => toggleEstado(pedido.id, "entregado")} 
+                            className="flex size-10 items-center justify-center rounded-full bg-yellow-400 text-black font-bold hover:bg-yellow-500 transition-all shadow-sm"
+                            title="Marcar como entregado">
                             <HandCoins className="size-5" />
                           </button>
                         )}
@@ -617,7 +619,9 @@ async function guardarEdicion() {
                         )}
                         
                         {!pedido.entregado && (
-                          <button onClick={() => toggleEstado(pedido.id, "entregado")} className="flex size-10 items-center justify-center rounded-full bg-orange-500 text-white hover:bg-orange-600 transition-all" title="Marcar como entregado">
+                          <button onClick={() => toggleEstado(pedido.id, "entregado")} 
+                            className="flex size-10 items-center justify-center rounded-full bg-yellow-400 text-black font-bold hover:bg-yellow-500 transition-all shadow-sm"
+                            title="Marcar como entregado">
                             <HandCoins className="size-5" />
                           </button>
                         )}
@@ -647,13 +651,17 @@ async function guardarEdicion() {
                         )}
                         
                         {!pedido.entregado && (
-                          <button onClick={() => avisarListoDelivery(pedido, pedido.id)} className="flex size-10 items-center justify-center rounded-full bg-orange-500 text-white hover:bg-orange-600 transition-all" title="Avisar al delivery que está listo">
+                          <button onClick={() => avisarListo(pedido)} 
+                            className="flex size-10 items-center justify-center rounded-full bg-yellow-400 text-black font-bold hover:bg-yellow-500 transition-all shadow-sm" 
+                            title="Avisar al delivery que está listo">
                             <Check className="size-5" />
                           </button>
                         )}
                         
                         {!pedido.entregado && (
-                          <button onClick={() => toggleEstado(pedido.id, "entregado")} className="flex size-10 items-center justify-center rounded-full bg-orange-500 text-white hover:bg-orange-600 transition-all" title="Marcar como entregado">
+                          <button onClick={() => toggleEstado(pedido.id, "entregado")} 
+                            className="flex size-10 items-center justify-center rounded-full bg-yellow-400 text-black font-bold hover:bg-yellow-500 transition-all shadow-sm"
+                            title="Marcar como entregado">
                             <HandCoins className="size-5" />
                           </button>
                         )}
