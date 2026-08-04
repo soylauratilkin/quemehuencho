@@ -209,42 +209,29 @@ export default function PedidosPage() {
     }
   }
 
-function avisarListoDoblefila(pedido: Pedido, orderId: string) {
-  const rawPhone = pedido.telefono
-  if (!rawPhone) {
-    alert("⚠️ Este pedido no tiene teléfono registrado. Editá el pedido para agregarlo.")
-    return
+async function avisarListo(pedido: any) {
+  try {
+    // 1. Le pedimos a Apps Script que guarde la hora y nos devuelva el link
+    const res = await fetch("/api/admin/pedidos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "listoRetiro", id: pedido.id })
+    })
+    
+    const data = await res.json()
+    
+    if (data.success && data.link) {
+      // 2. Abrimos WhatsApp
+      window.open(data.link, "_blank")
+      // 3. Recargamos los pedidos para que se actualice el badge de "ListoRetiro"
+      cargarPedidos()
+    } else {
+      alert("Error: " + (data.error || "No se pudo generar el aviso"))
+    }
+  } catch (e) {
+    console.error(e)
+    alert("Error de conexión al avisar que está listo")
   }
-  
-  let cleanPhone = rawPhone.replace(/\D/g, "")
-  if (!cleanPhone.startsWith("54")) {
-    cleanPhone = "54" + cleanPhone
-  }
-  
-  const message = encodeURIComponent(
-    `🟢 ¡Hola! Tu pedido Doblefila Express está listo.\n\nCuando llegues a Roque Sáenz Peña 212, respondé este mensaje y salimos a la vereda a entregártelo. ¡No hace falta que estaciones!\n\nID: ${orderId}`
-  )
-  
-  window.open(`https://wa.me/${cleanPhone}?text=${message}`, "_blank")
-}
-
-function avisarListoDelivery(pedido: Pedido, orderId: string) {
-  const rawPhone = pedido.telefono
-  if (!rawPhone) {
-    alert("⚠️ Este pedido no tiene teléfono registrado.")
-    return
-  }
-  
-  let cleanPhone = rawPhone.replace(/\D/g, "")
-  if (!cleanPhone.startsWith("54")) {
-    cleanPhone = "54" + cleanPhone
-  }
-  
-  const message = encodeURIComponent(
-    `🛵 ¡Hola! El pedido ${orderId} está listo para retirar en el local.\n\nDirección: Roque Sáenz Peña 212, Puerto Madryn.`
-  )
-  
-  window.open(`https://wa.me/${cleanPhone}?text=${message}`, "_blank")
 }
 
 function clasificarPedido(p: Pedido): "mostrador" | "mesas" | "envios" {
@@ -581,7 +568,13 @@ async function guardarEdicion() {
                         )}
                         
                         {!pedido.entregado && (
-                          <button onClick={() => avisarListoDoblefila(pedido, pedido.id)} className="flex size-10 items-center justify-center rounded-full bg-green-500 text-white hover:bg-green-600 transition-all" title="Avisar que está listo (Vereda)">
+                          <button
+                            onClick={() => avisarListo(pedido)}
+                            className={`flex size-10 items-center justify-center rounded-full transition-all ${
+                              pedido.listoRetiro ? "bg-green-500 text-white" : "bg-green-500 text-white hover:bg-green-600"
+                            }`}
+                            title={pedido.listoRetiro ? "Avisado el: " + pedido.listoRetiro : "Avisar que está listo (Vereda)"}
+                          >
                             <Car className="size-5" />
                           </button>
                         )}
@@ -612,7 +605,13 @@ async function guardarEdicion() {
                         )}
                         
                         {!pedido.entregado && pedido.origen === "web" && (
-                          <button onClick={() => listoRetiro(pedido.id)} className={`flex size-10 items-center justify-center rounded-full transition-all ${pedido.listoRetiro ? "bg-green-500 text-white" : "bg-orange-500 text-white hover:bg-orange-600"}`} title="Avisar que está listo">
+                          <button
+                            onClick={() => avisarListo(pedido)}
+                            className={`flex size-10 items-center justify-center rounded-full transition-all ${
+                              pedido.listoRetiro ? "bg-green-500 text-white" : "bg-orange-500 text-white hover:bg-orange-600"
+                            }`}
+                            title={pedido.listoRetiro ? "Avisado el: " + pedido.listoRetiro : "Avisar que está listo para retirar"}
+                          >
                             <Check className="size-5" />
                           </button>
                         )}
