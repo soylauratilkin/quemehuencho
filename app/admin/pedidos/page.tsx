@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react"
-import { HandCoins, Banknote, Edit3, Plus, Trash2, Check, Minus, Send, Bike } from "lucide-react"
+import { HandCoins, Banknote, Edit3, Plus, Trash2, Check, Minus, Send, Bike, Car } from "lucide-react"
 import { formatPrice, fetchProductsFromGoogleSheet, MENU_CSV_URL, type Product } from "@/lib/menu-data"
 
 type PedidoItem = {
@@ -24,6 +24,7 @@ type Pedido = {
   rowNumber?: number
   confirmadoCliente?: string
   listoRetiro?: string
+  telefono?: string
 }
 
 type Filtro = "todos" | "mostrador" | "mesas" | "envios"
@@ -41,6 +42,7 @@ export default function PedidosPage() {
   const [pedidoEditando, setPedidoEditando] = useState<Pedido | null>(null)
   const [itemsEdit, setItemsEdit] = useState<PedidoItem[]>([])
   const [ubicacionEdit, setUbicacionEdit] = useState<string>("")
+  const [telefonoEdit, setTelefonoEdit] = useState<string>("")
   
   // Estados de notificación
   const [reenviadoCliente, setReenviadoCliente] = useState<string | null>(null)
@@ -115,7 +117,7 @@ export default function PedidosPage() {
       const res = await fetch("/api/admin/pedidos")
       const data = await res.json()
       const nuevosPedidos: Pedido[] = data.pedidos || []
-      
+
       if (nuevosPedidos.length > 0) {
         const pedidoMasReciente = nuevosPedidos[0]
         if (ultimoPedidoId && pedidoMasReciente.id !== ultimoPedidoId) {
@@ -207,12 +209,40 @@ export default function PedidosPage() {
     }
   }
 
-  function clasificarPedido(p: Pedido): "mostrador" | "mesas" | "envios" {
-    const ub = p.ubicacion?.toLowerCase() || ""
-    if (p.origen === "web" || ub.includes("envio") || ub.includes("retiro") || ub === "web") return "envios"
-    if (ub === "mostrador") return "mostrador"
-    return "mesas"
+async function avisarListo(pedido: any) {
+  try {
+    // 1. Le pedimos a Apps Script que guarde la hora y nos devuelva el link
+    const res = await fetch("/api/admin/pedidos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "listoRetiro", id: pedido.id })
+    })
+    
+    const data = await res.json()
+    
+    if (data.success && data.link) {
+      // 2. Abrimos WhatsApp
+      window.open(data.link, "_blank")
+      // 3. Recargamos los pedidos para que se actualice el badge de "ListoRetiro"
+      cargarPedidos()
+    } else {
+      alert("Error: " + (data.error || "No se pudo generar el aviso"))
+    }
+  } catch (e) {
+    console.error(e)
+    alert("Error de conexión al avisar que está listo")
   }
+}
+
+function clasificarPedido(p: Pedido): "mostrador" | "mesas" | "envios" {
+  const ub = p.ubicacion?.toLowerCase() || ""
+  // ✅ Agregamos "doblefila" para que caiga en la pestaña de envíos
+  if (p.origen === "web" || ub.includes("envio") || ub.includes("retiro") || ub === "web" || ub.includes("doblefila")) {
+    return "envios"
+  }
+  if (ub === "mostrador") return "mostrador"
+  return "mesas"
+}
 
   // 🚀 OPTIMIZACIÓN CLAVE: useMemo evita recalcular esto en cada render
   const pedidosHoy = useMemo(() => {
@@ -279,6 +309,7 @@ export default function PedidosPage() {
     setItemsEdit(items)
     setPedidoEditando(pedido)
     setUbicacionEdit(pedido.ubicacion)
+    setTelefonoEdit(pedido.telefono || "") // ✅ NUEVO
     setEditandoId(pedido.id)
   }
 
@@ -300,22 +331,34 @@ export default function PedidosPage() {
     return items.reduce((acc, item) => acc + ((Number(item.price) || 0) * (Number(item.quantity) || 0)), 0)
   }
 
-  async function guardarEdicion() {
-    if (!editandoId || itemsEdit.length === 0) return
-    const itemsValidos = itemsEdit.filter(i => i.name && i.name.trim() !== "" && i.productId)
-    if (itemsValidos.length === 0) return alert("Debe haber al menos un item válido")
-    
-    await fetch("/api/admin/pedidos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "editarPedido", id: editandoId, items: itemsValidos, ubicacion: ubicacionEdit })
-    })
-    setEditandoId(null)
-    setPedidoEditando(null)
-    setItemsEdit([])
-    setUbicacionEdit("")
-    cargarPedidos()
+async function guardarEdicion() {
+  if (!editandoId || itemsEdit.length === 0) return
+  const itemsValidos = itemsEdit.filter(i => i.name && i.name.trim() !== "" && i.productId)
+  
+  if (itemsValidos.length === 0) {
+    alert("Debe haber al menos un item válido")
+    return
   }
+  
+  await fetch("/api/admin/pedidos", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      action: "editarPedido",
+      id: editandoId,
+      items: itemsValidos,
+      ubicacion: ubicacionEdit,
+      telefono: telefonoEdit // ✅ NUEVO
+    })
+  })
+  
+  setEditandoId(null)
+  setPedidoEditando(null)
+  setItemsEdit([])
+  setUbicacionEdit("")
+  setTelefonoEdit("") // ✅ NUEVO
+  cargarPedidos()
+}
 
   const labelAcumulado = estadoFiltro === "activos" ? "Pendiente" : "Facturado"
 
@@ -399,6 +442,7 @@ export default function PedidosPage() {
         <div className="space-y-3">
           {pedidosFiltrados.map((pedido) => {
             const isEditing = editandoId === pedido.id
+            const isDoblefila = pedido.ubicacion?.toLowerCase().includes("doblefila")
             let itemsMostrar: PedidoItem[] = pedido.items || []
             if (itemsMostrar.length === 0 && pedido.detalle) {
               itemsMostrar = pedido.detalle.split(" | ").map((d) => {
@@ -414,12 +458,29 @@ export default function PedidosPage() {
             const productosDisponibles = getProductosDisponibles(pedido.origen)
 
             return (
-              <div key={pedido.id} className={`rounded-2xl p-4 transition-all ${pedido.pagado ? "bg-green-950/20 ring-1 ring-green-500/30 opacity-60" : pedido.entregado ? "bg-blue-950/30 ring-1 ring-blue-500/30" : (pedido.origen === "mesa") ? "bg-[#a855f7]/10 border-2 border-[#a855f7] shadow-[0_0_15px_rgba(168,85,247,0.3)]" : "bg-[#111] ring-1 ring-[#333]"}`}>
+              <div
+                key={pedido.id}
+                className={`rounded-2xl p-4 transition-all ${
+                  pedido.pagado 
+                    ? "bg-green-950/20 ring-1 ring-green-500/30 opacity-60"
+                    : pedido.entregado 
+                    ? "bg-blue-950/30 ring-1 ring-blue-500/30" 
+                    : isDoblefila
+                    ? "bg-green-900/20 border-2 border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.3)]" // 🟢 VERDE DOBLEFILA
+                    : (pedido.origen === "mesa")
+                    ? "bg-[#a855f7]/10 border-2 border-[#a855f7] shadow-[0_0_15px_rgba(168,85,247,0.3)]"
+                    : "bg-[#111] ring-1 ring-[#333]"
+                }`}
+              >
                 {/* HEADER DEL PEDIDO */}
                 <div className="mb-3 flex items-start justify-between gap-2">
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="rounded-full bg-[#ff751f] px-2 py-0.5 text-[10px] font-bold text-black">{pedido.ubicacion}</span>
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                        isDoblefila ? "bg-green-500 text-black" : "bg-[#ff751f] text-black"
+                      }`}>
+                        {pedido.ubicacion}
+                      </span>
                       <span className="text-[10px] text-gray-500">{pedido.fecha}</span>
                     </div>
                     <p className="mt-1 text-[10px] font-mono text-gray-500">{pedido.id}</p>
@@ -442,8 +503,27 @@ export default function PedidosPage() {
                     <div className="mb-2">
                       <label className="text-[10px] font-bold uppercase text-gray-500 mb-1 block">Ubicación</label>
                       <select value={ubicacionEdit} onChange={(e) => setUbicacionEdit(e.target.value)} className="w-full rounded-lg bg-[#0a0a0a] px-3 py-2 text-xs text-white ring-1 ring-[#333]">
-                        {["Mostrador", "Mesa 1", "Mesa 2", "Mesa 3", "Mesa 4", "Mesa 5", "Mesa 6"].map(m => <option key={m} value={m}>{m}</option>)}
+                        {["Mostrador", "Mesa 1", "Mesa 2", "Mesa 3", "Mesa 4", "Mesa 5", "Mesa 6", "Doblefila Express", "Retiro en local", "Envio"].map(m => <option key={m} value={m}>{m}</option>)}
                       </select>
+                    </div>
+
+                    {/* ✅ CAMPO DE TELÉFONO */}
+                    <div className="mb-2">
+                      <label className="text-[10px] font-bold uppercase text-gray-500 mb-1 block">Teléfono</label>
+                      <input
+                        type="tel"
+                        value={telefonoEdit}
+                        onChange={(e) => setTelefonoEdit(e.target.value.replace(/\D/g, ""))}
+                        placeholder="Ej: 5492804007296"
+                        className={`w-full rounded-lg bg-[#0a0a0a] px-3 py-2 text-xs text-white ring-1 transition-all ${
+                          telefonoEdit.length > 0 && (telefonoEdit.length < 10 || telefonoEdit.length > 15)
+                            ? "ring-red-500"
+                            : "ring-[#333]"
+                        }`}
+                      />
+                      {telefonoEdit.length > 0 && (telefonoEdit.length < 10 || telefonoEdit.length > 15) && (
+                        <p className="text-[9px] text-red-400 mt-1">⚠️ Teléfono inválido (debe tener 10-15 dígitos)</p>
+                      )}
                     </div>
                     {itemsEdit.map((item, idx) => (
                       <div key={idx} className="rounded-lg bg-[#1a1a1a] p-2 space-y-2">
@@ -474,25 +554,139 @@ export default function PedidosPage() {
                   </div>
                 )}
 
-                {/* ACCIONES */}
+                {/* ACCIONES - ORDENADAS Y CORREGIDAS */}
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <div className="flex gap-2 flex-wrap">
-                    <button onClick={() => toggleEstado(pedido.id, "entregado")} className={`flex size-10 items-center justify-center rounded-full transition-all ${pedido.entregado ? "bg-green-500 text-white" : "bg-red-500 text-white hover:bg-red-600"}`} title="Entregado"><HandCoins className="size-5" /></button>
-                    <button onClick={() => toggleEstado(pedido.id, "pagado")} className={`flex size-10 items-center justify-center rounded-full transition-all ${pedido.pagado ? "bg-green-500 text-white" : "bg-red-500 text-white hover:bg-red-600"}`} title="Pagado"><Banknote className="size-5" /></button>
-                    {pedido.origen === "web" && (
-                      <button onClick={() => reenviarCliente(pedido.id)} className={`flex size-10 items-center justify-center rounded-full transition-all ${pedido.confirmadoCliente ? "bg-green-500 text-white" : "bg-red-500 text-white hover:bg-red-600"}`} title="Confirmar al cliente"><Send className="size-5" /></button>
+                    
+                    {/* ===== DOBLEFILA EXPRESS ===== */}
+                    {isDoblefila && (
+                      <>
+                        {!pedido.entregado && pedido.origen === "web" && (
+                          <button onClick={() => reenviarCliente(pedido.id)} className={`flex size-10 items-center justify-center rounded-full transition-all ${pedido.confirmadoCliente ? "bg-green-500 text-white" : "bg-blue-500 text-white hover:bg-blue-600"}`} title="Confirmar al cliente">
+                            <Send className="size-5" />
+                          </button>
+                        )}
+                        
+                        {!pedido.entregado && (
+                          <button
+                            onClick={() => avisarListo(pedido)}
+                            className={`flex size-10 items-center justify-center rounded-full transition-all ${
+                              pedido.listoRetiro ? "bg-green-500 text-white" : "bg-green-500 text-white hover:bg-green-600"
+                            }`}
+                            title={pedido.listoRetiro ? "Avisado el: " + pedido.listoRetiro : "Avisar que está listo (Vereda)"}
+                          >
+                            <Car className="size-5" />
+                          </button>
+                        )}
+                        
+                        {!pedido.entregado && (
+                          <button onClick={() => toggleEstado(pedido.id, "entregado")} 
+                            className="flex size-10 items-center justify-center rounded-full bg-yellow-400 text-black font-bold hover:bg-yellow-500 transition-all shadow-sm"
+                            title="Marcar como entregado">
+                            <HandCoins className="size-5" />
+                          </button>
+                        )}
+                        
+                        {/* ✅ ESTE BOTÓN SIEMPRE SE VE HASTA QUE SE PAGA */}
+                        {!pedido.pagado && (
+                          <button onClick={() => toggleEstado(pedido.id, "pagado")} className="flex size-10 items-center justify-center rounded-full bg-red-500 text-white hover:bg-red-600 transition-all" title="Marcar como pagado">
+                            <Banknote className="size-5" />
+                          </button>
+                        )}
+                        {pedido.pagado && <div className="flex size-10 items-center justify-center rounded-full bg-green-500 text-white"><Banknote className="size-5" /></div>}
+                      </>
                     )}
-                    {clasificarPedido(pedido) === "envios" && !pedido.ubicacion?.toLowerCase().includes("retiro") && pedido.origen === "web" && (
-                      <button onClick={() => reenviarDelivery(pedido.id)} className={`flex size-10 items-center justify-center rounded-full transition-all ${reenviadoDelivery === pedido.id ? "bg-green-500 text-white" : "bg-red-500 text-white hover:bg-red-600"}`} title="Reenviar al delivery"><Bike className="size-5" /></button>
+
+                    {/* ===== RETIRO EN LOCAL ===== */}
+                    {pedido.ubicacion?.toLowerCase().includes("retiro") && !isDoblefila && (
+                      <>
+                        {!pedido.entregado && pedido.origen === "web" && (
+                          <button onClick={() => reenviarCliente(pedido.id)} className={`flex size-10 items-center justify-center rounded-full transition-all ${pedido.confirmadoCliente ? "bg-green-500 text-white" : "bg-blue-500 text-white hover:bg-blue-600"}`} title="Confirmar al cliente">
+                            <Send className="size-5" />
+                          </button>
+                        )}
+                        
+                        {!pedido.entregado && pedido.origen === "web" && (
+                          <button
+                            onClick={() => avisarListo(pedido)}
+                            className={`flex size-10 items-center justify-center rounded-full transition-all ${
+                              pedido.listoRetiro ? "bg-green-500 text-white" : "bg-orange-500 text-white hover:bg-orange-600"
+                            }`}
+                            title={pedido.listoRetiro ? "Avisado el: " + pedido.listoRetiro : "Avisar que está listo para retirar"}
+                          >
+                            <Check className="size-5" />
+                          </button>
+                        )}
+                        
+                        {!pedido.entregado && (
+                          <button onClick={() => toggleEstado(pedido.id, "entregado")} 
+                            className="flex size-10 items-center justify-center rounded-full bg-yellow-400 text-black font-bold hover:bg-yellow-500 transition-all shadow-sm"
+                            title="Marcar como entregado">
+                            <HandCoins className="size-5" />
+                          </button>
+                        )}
+                        
+                        {!pedido.pagado && (
+                          <button onClick={() => toggleEstado(pedido.id, "pagado")} className="flex size-10 items-center justify-center rounded-full bg-red-500 text-white hover:bg-red-600 transition-all" title="Marcar como pagado">
+                            <Banknote className="size-5" />
+                          </button>
+                        )}
+                        {pedido.pagado && <div className="flex size-10 items-center justify-center rounded-full bg-green-500 text-white"><Banknote className="size-5" /></div>}
+                      </>
                     )}
-                    {pedido.ubicacion?.toLowerCase().includes("retiro") && pedido.origen === "web" && (
-                      <button onClick={() => listoRetiro(pedido.id)} className={`flex size-10 items-center justify-center rounded-full transition-all ${pedido.listoRetiro ? "bg-green-500 text-white" : "bg-orange-500 text-white hover:bg-orange-600"}`} title="Listo para retiro"><Check className="size-5" /></button>
+
+                    {/* ===== DELIVERY ===== */}
+                    {clasificarPedido(pedido) === "envios" && !isDoblefila && !pedido.ubicacion?.toLowerCase().includes("retiro") && (
+                      <>
+                        {!pedido.entregado && pedido.origen === "web" && (
+                          <button onClick={() => reenviarCliente(pedido.id)} className={`flex size-10 items-center justify-center rounded-full transition-all ${pedido.confirmadoCliente ? "bg-green-500 text-white" : "bg-blue-500 text-white hover:bg-blue-600"}`} title="Confirmar al cliente">
+                            <Send className="size-5" />
+                          </button>
+                        )}
+                        
+                        {!pedido.entregado && pedido.origen === "web" && (
+                          <button onClick={() => reenviarDelivery(pedido.id)} className={`flex size-10 items-center justify-center rounded-full transition-all ${reenviadoDelivery === pedido.id ? "bg-green-500 text-white" : "bg-purple-500 text-white hover:bg-purple-600"}`} title="Reenviar al delivery">
+                            <Bike className="size-5" />
+                          </button>
+                        )}
+                        
+                        {!pedido.entregado && (
+                          <button onClick={() => avisarListo(pedido)} 
+                            className="flex size-10 items-center justify-center rounded-full bg-yellow-400 text-black font-bold hover:bg-yellow-500 transition-all shadow-sm" 
+                            title="Avisar al delivery que está listo">
+                            <Check className="size-5" />
+                          </button>
+                        )}
+                        
+                        {!pedido.entregado && (
+                          <button onClick={() => toggleEstado(pedido.id, "entregado")} 
+                            className="flex size-10 items-center justify-center rounded-full bg-yellow-400 text-black font-bold hover:bg-yellow-500 transition-all shadow-sm"
+                            title="Marcar como entregado">
+                            <HandCoins className="size-5" />
+                          </button>
+                        )}
+                        
+                        {!pedido.pagado && (
+                          <button onClick={() => toggleEstado(pedido.id, "pagado")} className="flex size-10 items-center justify-center rounded-full bg-red-500 text-white hover:bg-red-600 transition-all" title="Marcar como pagado">
+                            <Banknote className="size-5" />
+                          </button>
+                        )}
+                        {pedido.pagado && <div className="flex size-10 items-center justify-center rounded-full bg-green-500 text-white"><Banknote className="size-5" /></div>}
+                      </>
                     )}
                   </div>
+
+                  {/* BOTONES DE EDICIÓN Y BORRADO */}
                   {!isEditing && (
                     <div className="flex gap-2">
-                      {!pedido.pagado && (<button onClick={() => empezarEditar(pedido)} className="flex items-center gap-1 rounded-full bg-[#1a1a1a] px-3 py-1.5 text-xs font-bold text-gray-300 hover:bg-[#2a2a2a]"><Edit3 className="size-3" /> Editar</button>)}
-                      <button onClick={() => borrarPedido(pedido.id)} className="flex items-center gap-1 rounded-full bg-red-500/20 px-3 py-1.5 text-xs font-bold text-red-400 hover:bg-red-500/30"><Trash2 className="size-3" /> Borrar</button>
+                      {!pedido.pagado && (
+                        <button onClick={() => empezarEditar(pedido)} className="flex items-center gap-1 rounded-full bg-[#1a1a1a] px-3 py-1.5 text-xs font-bold text-gray-300 hover:bg-[#2a2a2a]">
+                          <Edit3 className="size-3" /> Editar
+                        </button>
+                      )}
+                      <button onClick={() => borrarPedido(pedido.id)} className="flex items-center gap-1 rounded-full bg-red-500/20 px-3 py-1.5 text-xs font-bold text-red-400 hover:bg-red-500/30">
+                        <Trash2 className="size-3" /> Borrar
+                      </button>
                     </div>
                   )}
                 </div>
