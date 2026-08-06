@@ -506,25 +506,26 @@ async function guardarEdicion() {
                         {["Mostrador", "Mesa 1", "Mesa 2", "Mesa 3", "Mesa 4", "Mesa 5", "Mesa 6", "Doblefila Express", "Retiro en local", "Envio"].map(m => <option key={m} value={m}>{m}</option>)}
                       </select>
                     </div>
-
-                    {/* ✅ CAMPO DE TELÉFONO */}
-                    <div className="mb-2">
-                      <label className="text-[10px] font-bold uppercase text-gray-500 mb-1 block">Teléfono</label>
-                      <input
-                        type="tel"
-                        value={telefonoEdit}
-                        onChange={(e) => setTelefonoEdit(e.target.value.replace(/\D/g, ""))}
-                        placeholder="Ej: 5492804007296"
-                        className={`w-full rounded-lg bg-[#0a0a0a] px-3 py-2 text-xs text-white ring-1 transition-all ${
-                          telefonoEdit.length > 0 && (telefonoEdit.length < 10 || telefonoEdit.length > 15)
-                            ? "ring-red-500"
-                            : "ring-[#333]"
-                        }`}
-                      />
-                      {telefonoEdit.length > 0 && (telefonoEdit.length < 10 || telefonoEdit.length > 15) && (
-                        <p className="text-[9px] text-red-400 mt-1">⚠️ Teléfono inválido (debe tener 10-15 dígitos)</p>
-                      )}
-                    </div>
+                    {/* ✅ CAMPO DE TELÉFONO (Solo si NO es Mesa ni Mostrador) */}
+                    {!ubicacionEdit.toLowerCase().includes("mesa") && !ubicacionEdit.toLowerCase().includes("mostrador") && (
+                      <div className="mb-2">
+                        <label className="text-[10px] font-bold uppercase text-gray-500 mb-1 block">Teléfono</label>
+                        <input
+                          type="tel"
+                          value={telefonoEdit}
+                          onChange={(e) => setTelefonoEdit(e.target.value.replace(/\D/g, ""))}
+                          placeholder="Ej: 5492804007296"
+                          className={`w-full rounded-lg bg-[#0a0a0a] px-3 py-2 text-xs text-white ring-1 transition-all ${
+                            telefonoEdit.length > 0 && (telefonoEdit.length < 10 || telefonoEdit.length > 15)
+                              ? "ring-red-500"
+                              : "ring-[#333]"
+                          }`}
+                        />
+                        {telefonoEdit.length > 0 && (telefonoEdit.length < 10 || telefonoEdit.length > 15) && (
+                          <p className="text-[9px] text-red-400 mt-1">⚠️ Teléfono inválido (debe tener 10-15 dígitos)</p>
+                        )}
+                      </div>
+                    )}
                     {itemsEdit.map((item, idx) => (
                       <div key={idx} className="rounded-lg bg-[#1a1a1a] p-2 space-y-2">
                         <select value={item.productId || ""} onChange={(e) => actualizarItem(idx, e.target.value)} className="w-full rounded bg-[#0a0a0a] px-2 py-1.5 text-xs text-white ring-1 ring-[#333]">
@@ -675,7 +676,41 @@ async function guardarEdicion() {
                       </>
                     )}
                   </div>
-
+                  {/* ===== MESA / MOSTRADOR (Fallback para pedidos que no son Delivery/Retiro/Doblefila) ===== */}
+                  {!isDoblefila && 
+                  !pedido.ubicacion?.toLowerCase().includes("retiro") && 
+                  clasificarPedido(pedido) !== "envios" && (
+                    <>
+                      {/* 1. Marcar como entregado (Amarillo) */}
+                      {!pedido.entregado && (
+                        <button 
+                          onClick={() => toggleEstado(pedido.id, "entregado")} 
+                          className="flex size-10 items-center justify-center rounded-full bg-yellow-400 text-black font-bold hover:bg-yellow-500 transition-all shadow-sm" 
+                          title="Marcar como entregado"
+                        >
+                          <HandCoins className="size-5" />
+                        </button>
+                      )}
+                      
+                      {/* 2. Marcar como pagado (Rojo) */}
+                      {!pedido.pagado && (
+                        <button 
+                          onClick={() => toggleEstado(pedido.id, "pagado")} 
+                          className="flex size-10 items-center justify-center rounded-full bg-red-500 text-white hover:bg-red-600 transition-all" 
+                          title="Marcar como pagado"
+                        >
+                          <Banknote className="size-5" />
+                        </button>
+                      )}
+                      
+                      {/* Indicador de ya pagado */}
+                      {pedido.pagado && (
+                        <div className="flex size-10 items-center justify-center rounded-full bg-green-500 text-white">
+                          <Banknote className="size-5" />
+                        </div>
+                      )}
+                    </>
+                  )}
                   {/* BOTONES DE EDICIÓN Y BORRADO */}
                   {!isEditing && (
                     <div className="flex gap-2">

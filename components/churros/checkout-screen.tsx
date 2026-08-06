@@ -264,7 +264,11 @@ export function CheckoutScreen() {
             <ul className="space-y-2 text-xs text-green-100/90">
               <li className="flex gap-2">
                 <span className="font-bold text-green-400">1.</span>
-                <span>Confirmá este pedido y realizá la transferencia al alias: <b className="text-white bg-green-700/50 px-1 rounded">quemehuencho.mp</b></span>
+                <span>
+                  Realizá la transferencia al alias: <b className="text-white bg-green-700/50 px-1 rounded">{config.alias_mercadopago}</b>
+                  <br />
+                  <span className="text-[10px] opacity-80">Titular: {config.nombre_titular_alias}</span>
+                </span>
               </li>
               <li className="flex gap-2">
                 <span className="font-bold text-green-400">2.</span>
