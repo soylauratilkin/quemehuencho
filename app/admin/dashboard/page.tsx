@@ -80,7 +80,7 @@ export default function DashboardPage() {
     (data.porTipo.mostrador || 0)
 
   // ✅ CORREGIDO: Por Día = Total / Días con ventas (no / pedidos)
-  const promedioPorDia = data.diasConVentas > 0 
+  const pedidosPorDia = data.diasConVentas > 0 
     ? Math.round((data.pedidosHoy || 0) / data.diasConVentas) 
     : 0
 
