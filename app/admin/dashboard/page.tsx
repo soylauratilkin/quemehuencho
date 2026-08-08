@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ArrowLeft, TrendingUp, ShoppingCart, DollarSign, Package, Bike, Store, Car, Users, LayoutGrid } from "lucide-react"
+import { ArrowLeft, TrendingUp, TrendingDown, Minus, ShoppingCart, DollarSign, Package, Bike, Store, Car, Users, LayoutGrid } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { formatPrice } from "@/lib/menu-data"
 
@@ -81,7 +81,7 @@ export default function DashboardPage() {
 
   // ✅ CORREGIDO: Por Día = Total / Días con ventas (no / pedidos)
   const promedioPorDia = data.diasConVentas > 0 
-    ? Math.round((data.totalHoy || 0) / data.diasConVentas) 
+    ? Math.round((data.pedidosHoy || 0) / data.diasConVentas) 
     : 0
 
   return (
@@ -113,6 +113,40 @@ export default function DashboardPage() {
 
       {/* MÉTRICAS PRINCIPALES */}
       <div className="space-y-4 px-4">
+        {/* TARJETA DE TENDENCIA (DoD / WoW / MoM) */}
+        <div className={`rounded-3xl p-5 ring-1 transition-all ${
+          data.variacion > 0 ? "bg-green-500/10 ring-green-500/30" : 
+          data.variacion < 0 ? "bg-red-500/10 ring-red-500/30" : 
+          "bg-[#111] ring-[#333]"
+        }`}>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wide text-gray-400 mb-1">
+                Tendencia ({data.periodoComparativa || "vs anterior"})
+              </p>
+              <div className="flex items-baseline gap-2">
+                <span className={`text-3xl font-extrabold ${
+                  data.variacion > 0 ? "text-green-400" : 
+                  data.variacion < 0 ? "text-red-400" : "text-gray-400"
+                }`}>
+                  {data.textoVariacion}
+                </span>
+              </div>
+            </div>
+            <div className={`flex size-12 items-center justify-center rounded-full ${
+               data.variacion > 0 ? "bg-green-500/20 text-green-400" : 
+               data.variacion < 0 ? "bg-red-500/20 text-red-400" : "bg-gray-500/20 text-gray-400"
+            }`}>
+              {data.variacion > 0 ? <TrendingUp className="size-6" /> : 
+               data.variacion < 0 ? <TrendingDown className="size-6" /> : 
+               <Minus className="size-6" />}
+            </div>
+          </div>
+          <p className="mt-2 text-[10px] text-gray-500">
+            {formatPrice(data.totalHoy || 0)} vs {formatPrice(data.totalAnterior || 0)}
+          </p>
+        </div>
+
         {/* PROMEDIO DIARIO (DESTACADO) */}
         <div className="rounded-3xl bg-gradient-to-br from-[#ff751f] to-[#ff751f]/80 p-6 text-black shadow-xl">
           <div className="mb-2 flex items-center gap-2 text-black/80">
@@ -145,10 +179,11 @@ export default function DashboardPage() {
             color="bg-purple-500/20 text-purple-400"
           />
           <MetricCard
-            title={`Por Día (${data.diasConVentas} días)`}
-            value={promedioPorDia}
+            title={`Pedidos por Día (${data.diasConVentas} días)`}
+            value={pedidosPorDia}
             icon={<Package className="size-5" />}
             color="bg-yellow-500/20 text-yellow-400"
+            isNumber
           />
         </div>
 
