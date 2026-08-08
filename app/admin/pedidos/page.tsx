@@ -1,8 +1,9 @@
 "use client"
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react"
-import { HandCoins, Banknote, Edit3, Plus, Trash2, Check, Minus, Send, Bike, Car } from "lucide-react"
+import { HandCoins, Banknote, Edit3, Plus, Trash2, Check, Minus, Send, Bike, Car, TrendingUp } from "lucide-react"
 import { formatPrice, fetchProductsFromGoogleSheet, MENU_CSV_URL, type Product } from "@/lib/menu-data"
+import { useRouter } from "next/navigation"
 
 type PedidoItem = {
   productId?: string
@@ -36,7 +37,8 @@ export default function PedidosPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [filtro, setFiltro] = useState<Filtro>("todos")
   const [estadoFiltro, setEstadoFiltro] = useState<EstadoFiltro>("activos")
-  
+  const router = useRouter()
+
   // Estados de edición
   const [editandoId, setEditandoId] = useState<string | null>(null)
   const [pedidoEditando, setPedidoEditando] = useState<Pedido | null>(null)
@@ -390,6 +392,14 @@ async function guardarEdicion() {
           <button onClick={() => setEstadoFiltro("activos")} className={`flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-bold transition-all ${estadoFiltro === "activos" ? "bg-red-500 text-white" : "bg-[#1a1a1a] text-gray-400"}`}>Solo activos</button>
           <button onClick={() => setEstadoFiltro("todos")} className={`flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-bold transition-all ${estadoFiltro === "todos" ? "bg-green-500 text-white" : "bg-[#1a1a1a] text-gray-400"}`}>Ver todos</button>
         </div>
+        {/* ✅ Botón Dashboard a la derecha (mismo tamaño que los filtros) */}
+        <button
+          onClick={() => router.push("/admin/dashboard")}
+          className="flex items-center gap-1.5 rounded-full bg-[#1a1a1a] px-3 py-1.5 text-xs font-bold text-[#ff751f] ring-1 ring-[#ff751f]/30 hover:bg-[#ff751f]/10 transition-all"
+        >
+          <TrendingUp className="size-3.5" />
+          Dashboard
+        </button>
       </div>
 
       {/* HEADER */}
